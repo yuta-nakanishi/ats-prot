@@ -1,19 +1,22 @@
-import { FC, useState, useEffect } from 'react';
+import { FC, useState } from 'react';
 import { 
-  TextField, 
+  Input, 
   Button, 
-  Box, 
   Typography, 
-  FormControl, 
-  FormLabel, 
-  FormGroup, 
-  FormControlLabel, 
+  Form, 
   Checkbox,
   Divider,
-  Grid,
-  Chip
-} from '@mui/material';
+  Row,
+  Col,
+  Tag,
+  Space,
+  Alert,
+  Card
+} from 'antd';
 import { Permission, PermissionAction, PermissionResource, CustomRole } from '../../lib/types';
+
+const { TextArea } = Input;
+const { Title, Text } = Typography;
 
 interface CustomRoleFormProps {
   permissions: Permission[];
@@ -51,6 +54,24 @@ const getActionLabel = (action: PermissionAction): string => {
   return actionMap[action] || action;
 };
 
+// アクションに応じた色を返す関数
+const getActionColor = (action: PermissionAction): string => {
+  switch (action) {
+    case PermissionAction.CREATE:
+      return 'green';
+    case PermissionAction.READ:
+      return 'blue';
+    case PermissionAction.UPDATE:
+      return 'orange';
+    case PermissionAction.DELETE:
+      return 'red';
+    case PermissionAction.MANAGE:
+      return 'purple';
+    default:
+      return 'default';
+  }
+};
+
 const CustomRoleForm: FC<CustomRoleFormProps> = ({ 
   permissions, 
   initialRole, 
@@ -58,10 +79,9 @@ const CustomRoleForm: FC<CustomRoleFormProps> = ({
   onSubmit, 
   onCancel 
 }) => {
-  const [name, setName] = useState(initialRole?.name || '');
-  const [description, setDescription] = useState(initialRole?.description || '');
   const [selectedPermissionIds, setSelectedPermissionIds] = useState<string[]>(initialPermissionIds);
   const [formError, setFormError] = useState('');
+  const [form] = Form.useForm();
 
   // 権限をリソースタイプごとにグループ化
   const permissionsByResource = permissions.reduce((acc, permission) => {
@@ -72,20 +92,13 @@ const CustomRoleForm: FC<CustomRoleFormProps> = ({
     return acc;
   }, {} as Record<string, Permission[]>);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!name.trim()) {
-      setFormError('ロール名は必須です');
-      return;
-    }
-    
+  const handleFinish = (values: { name: string; description: string }) => {
     if (selectedPermissionIds.length === 0) {
       setFormError('権限を1つ以上選択してください');
       return;
     }
     
-    onSubmit(name, description, selectedPermissionIds);
+    onSubmit(values.name, values.description, selectedPermissionIds);
   };
 
   const handleTogglePermission = (permissionId: string) => {
@@ -119,51 +132,57 @@ const CustomRoleForm: FC<CustomRoleFormProps> = ({
   };
 
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+    <Form
+      form={form}
+      layout="vertical"
+      initialValues={{
+        name: initialRole?.name || '',
+        description: initialRole?.description || '',
+      }}
+      onFinish={handleFinish}
+    >
       {formError && (
-        <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-          {formError}
-        </Typography>
+        <Alert
+          message={formError}
+          type="error"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
       )}
       
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <TextField
+      <Row gutter={16}>
+        <Col xs={24} md={12}>
+          <Form.Item
+            name="name"
             label="ロール名"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            fullWidth
-            required
-            margin="normal"
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
+            rules={[{ required: true, message: 'ロール名は必須です' }]}
+          >
+            <Input />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={12}>
+          <Form.Item
+            name="description"
             label="説明"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            fullWidth
-            margin="normal"
-            multiline
-            rows={2}
-          />
-        </Grid>
-      </Grid>
+          >
+            <TextArea rows={2} />
+          </Form.Item>
+        </Col>
+      </Row>
       
-      <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>
+      <Title level={5} style={{ marginTop: 24, marginBottom: 8 }}>
         付与する権限
-      </Typography>
-      <Divider sx={{ mb: 2 }} />
+      </Title>
+      <Divider style={{ marginBottom: 16 }} />
       
       {Object.entries(permissionsByResource).map(([resource, resourcePermissions]) => (
-        <Box key={resource} sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <FormLabel component="legend" sx={{ fontWeight: 'bold', mr: 2 }}>
+        <div key={resource} style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+            <Text strong style={{ marginRight: 16 }}>
               {getResourceLabel(resource as PermissionResource)}
-            </FormLabel>
+            </Text>
             <Button 
-              size="small" 
-              variant="outlined"
+              size="small"
               onClick={() => handleToggleAllResourcePermissions(
                 resource, 
                 resourcePermissions.map(p => p.id)
@@ -171,51 +190,39 @@ const CustomRoleForm: FC<CustomRoleFormProps> = ({
             >
               全て選択/解除
             </Button>
-          </Box>
+          </div>
           
-          <FormControl component="fieldset" sx={{ ml: 2 }}>
-            <FormGroup>
-              <Grid container spacing={1}>
-                {resourcePermissions.map((permission) => (
-                  <Grid item xs={12} sm={6} md={4} key={permission.id}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={selectedPermissionIds.includes(permission.id)}
-                          onChange={() => handleTogglePermission(permission.id)}
-                        />
-                      }
-                      label={
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Chip 
-                            label={getActionLabel(permission.action)}
-                            size="small"
-                            variant="outlined"
-                            sx={{ mr: 1 }}
-                          />
-                          <Typography variant="body2">
-                            {permission.description}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                  </Grid>
-                ))}
-              </Grid>
-            </FormGroup>
-          </FormControl>
-        </Box>
+          <div style={{ marginLeft: 16 }}>
+            <Row gutter={[8, 8]}>
+              {resourcePermissions.map((permission) => (
+                <Col xs={24} sm={12} md={8} key={permission.id}>
+                  <Checkbox
+                    checked={selectedPermissionIds.includes(permission.id)}
+                    onChange={() => handleTogglePermission(permission.id)}
+                  >
+                    <Space>
+                      <Tag color={getActionColor(permission.action)}>
+                        {getActionLabel(permission.action)}
+                      </Tag>
+                      <Text>{permission.description}</Text>
+                    </Space>
+                  </Checkbox>
+                </Col>
+              ))}
+            </Row>
+          </div>
+        </div>
       ))}
       
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-        <Button variant="outlined" onClick={onCancel} sx={{ mr: 2 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
+        <Button onClick={onCancel} style={{ marginRight: 8 }}>
           キャンセル
         </Button>
-        <Button variant="contained" color="primary" type="submit">
+        <Button type="primary" htmlType="submit">
           {initialRole ? '更新' : '作成'}
         </Button>
-      </Box>
-    </Box>
+      </div>
+    </Form>
   );
 };
 

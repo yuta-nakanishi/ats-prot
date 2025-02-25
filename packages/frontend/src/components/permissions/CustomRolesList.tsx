@@ -1,27 +1,14 @@
 import { FC, useState } from 'react';
 import { 
   Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
-  Paper, 
-  IconButton,
-  CircularProgress,
+  Spin,
   Alert,
-  Box,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
+  Modal,
   Button,
-  Tooltip
-} from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
-import InfoIcon from '@mui/icons-material/Info';
+  Tooltip,
+  Space
+} from 'antd';
+import { DeleteOutlined, EditOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { CustomRole } from '../../lib/types';
 
 interface CustomRolesListProps {
@@ -46,14 +33,14 @@ const CustomRolesList: FC<CustomRolesListProps> = ({
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-        <CircularProgress />
-      </Box>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
+        <Spin size="large" />
+      </div>
     );
   }
 
   if (error) {
-    return <Alert severity="error">{error}</Alert>;
+    return <Alert message={error} type="error" showIcon />;
   }
 
   const handleDeleteClick = (role: CustomRole) => {
@@ -74,83 +61,86 @@ const CustomRolesList: FC<CustomRolesListProps> = ({
     setRoleToDelete(null);
   };
 
+  const columns = [
+    {
+      title: 'ロール名',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: '説明',
+      dataIndex: 'description',
+      key: 'description',
+      render: (text: string) => text || '説明なし'
+    },
+    {
+      title: '作成日',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      render: (date: string) => new Date(date).toLocaleDateString('ja-JP')
+    },
+    {
+      title: 'アクション',
+      key: 'action',
+      align: 'right' as const,
+      render: (_: unknown, record: CustomRole) => (
+        <Space>
+          <Tooltip title="詳細を表示">
+            <Button 
+              type="text" 
+              icon={<InfoCircleOutlined />} 
+              size="small" 
+              onClick={() => onViewDetails && onViewDetails(record)}
+            />
+          </Tooltip>
+          {onEdit && (
+            <Tooltip title="編集">
+              <Button 
+                type="text" 
+                icon={<EditOutlined />} 
+                size="small" 
+                onClick={() => onEdit(record)}
+              />
+            </Tooltip>
+          )}
+          <Tooltip title="削除">
+            <Button 
+              type="text" 
+              danger 
+              icon={<DeleteOutlined />} 
+              size="small" 
+              onClick={() => handleDeleteClick(record)}
+            />
+          </Tooltip>
+        </Space>
+      ),
+    },
+  ];
+
   return (
     <>
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>ロール名</TableCell>
-              <TableCell>説明</TableCell>
-              <TableCell>作成日</TableCell>
-              <TableCell align="right">アクション</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {customRoles.map((role) => (
-              <TableRow key={role.id}>
-                <TableCell>{role.name}</TableCell>
-                <TableCell>{role.description || '説明なし'}</TableCell>
-                <TableCell>{new Date(role.createdAt).toLocaleDateString('ja-JP')}</TableCell>
-                <TableCell align="right">
-                  <Tooltip title="詳細を表示">
-                    <IconButton 
-                      size="small" 
-                      color="primary" 
-                      onClick={() => onViewDetails && onViewDetails(role)}
-                    >
-                      <InfoIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  {onEdit && (
-                    <Tooltip title="編集">
-                      <IconButton size="small" color="primary" onClick={() => onEdit(role)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                  <Tooltip title="削除">
-                    <IconButton 
-                      size="small" 
-                      color="error" 
-                      onClick={() => handleDeleteClick(role)}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))}
-            {customRoles.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} align="center">
-                  カスタムロールが見つかりません
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <Table
+        columns={columns}
+        dataSource={customRoles.map(role => ({ ...role, key: role.id }))}
+        pagination={{ pageSize: 10 }}
+        locale={{ emptyText: 'カスタムロールが見つかりません' }}
+      />
 
       {/* 削除確認ダイアログ */}
-      <Dialog
+      <Modal
+        title="カスタムロールの削除"
         open={deleteDialogOpen}
-        onClose={handleCancelDelete}
+        onCancel={handleCancelDelete}
+        onOk={handleConfirmDelete}
+        okText="削除"
+        cancelText="キャンセル"
+        okButtonProps={{ danger: true }}
       >
-        <DialogTitle>カスタムロールの削除</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            カスタムロール「{roleToDelete?.name}」を削除してもよろしいですか？
-            削除すると、このロールを持つユーザーからも権限が削除されます。
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCancelDelete}>キャンセル</Button>
-          <Button onClick={handleConfirmDelete} color="error" autoFocus>
-            削除
-          </Button>
-        </DialogActions>
-      </Dialog>
+        <p>
+          カスタムロール「{roleToDelete?.name}」を削除してもよろしいですか？
+          削除すると、このロールを持つユーザーからも権限が削除されます。
+        </p>
+      </Modal>
     </>
   );
 };

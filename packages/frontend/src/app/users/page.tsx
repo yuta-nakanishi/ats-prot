@@ -3,34 +3,22 @@
 import { useState, useEffect } from 'react';
 import { 
   Typography, 
-  Box, 
-  Paper, 
   Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow,
   Button,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  SelectChangeEvent,
+  Tag,
+  Spin,
+  Card,
   Divider,
   Alert,
-  DialogContentText,
-  IconButton
-} from '@mui/material';
+  Modal,
+  Form,
+  Select,
+  Space,
+  message
+} from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
 import { authApi, permissionsApi } from '../../lib/api';
 import { UserWithRoles, CustomRole } from '../../lib/types';
-import InfoIcon from '@mui/icons-material/Info';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<UserWithRoles[]>([]);
@@ -43,6 +31,7 @@ export default function UsersPage() {
   const [assignmentSuccess, setAssignmentSuccess] = useState(false);
   const [assignmentError, setAssignmentError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [form] = Form.useForm();
 
   const fetchData = async () => {
     try {
@@ -71,6 +60,7 @@ export default function UsersPage() {
     setSelectedRoleId('');
     setOpenRoleDialog(true);
     setAssignmentSuccess(false);
+    form.resetFields();
   };
 
   const handleCloseRoleDialog = () => {
@@ -78,8 +68,8 @@ export default function UsersPage() {
     setSelectedUser(null);
   };
 
-  const handleRoleChange = (event: SelectChangeEvent) => {
-    setSelectedRoleId(event.target.value as string);
+  const handleRoleChange = (value: string) => {
+    setSelectedRoleId(value);
   };
 
   const handleAssignRole = async () => {
@@ -93,6 +83,7 @@ export default function UsersPage() {
       
       // 成功メッセージを表示
       setAssignmentSuccess(true);
+      message.success('ロールが正常に割り当てられました');
       
       // ユーザーリストを更新（割り当てたロールが反映されるように）
       const updatedUserData = await authApi.getUserById(selectedUser.id);
@@ -108,6 +99,7 @@ export default function UsersPage() {
       setErrorMessage(error.message || 'ロール割り当て中にエラーが発生しました');
       // エラー状態をセット
       setAssignmentError(true);
+      message.error(error.message || 'ロール割り当て中にエラーが発生しました');
     }
   };
 
@@ -123,9 +115,11 @@ export default function UsersPage() {
       setUsers(users.map(user => 
         user.id === updatedUserData.id ? updatedUserData : user
       ));
+      message.success('ロールが正常に削除されました');
     } catch (err) {
       console.error('ロールの削除に失敗しました:', err);
       setError('ロールの削除に失敗しました。再度お試しください。');
+      message.error('ロールの削除に失敗しました');
     }
   };
 
@@ -138,138 +132,157 @@ export default function UsersPage() {
     return customRoles.filter(role => !assignedRoleIds.includes(role.id));
   };
 
+  // テーブル列の定義
+  const columns = [
+    {
+      title: '名前',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: 'メールアドレス',
+      dataIndex: 'email',
+      key: 'email',
+    },
+    {
+      title: (
+        <Space>
+          システムロール
+          <Button 
+            type="text" 
+            icon={<InfoCircleOutlined />} 
+            size="small"
+            onClick={() => window.open('/system-roles', '_blank')}
+            title="システムロールの詳細を表示"
+          />
+        </Space>
+      ),
+      dataIndex: 'role',
+      key: 'role',
+    },
+    {
+      title: 'カスタムロール',
+      dataIndex: 'customRoles',
+      key: 'customRoles',
+      render: (_: unknown, record: UserWithRoles) => (
+        <>
+          {record.customRoles && record.customRoles.length > 0 ? (
+            <Space wrap>
+              {record.customRoles.map(role => (
+                <Tag 
+                  key={role.id} 
+                  closable
+                  color="blue"
+                  onClose={() => handleRemoveRole(record.id, role.id)}
+                >
+                  {role.name}
+                </Tag>
+              ))}
+            </Space>
+          ) : (
+            <Typography.Text type="secondary">
+              なし
+            </Typography.Text>
+          )}
+        </>
+      ),
+    },
+    {
+      title: 'アクション',
+      key: 'action',
+      render: (_: unknown, record: UserWithRoles) => (
+        <Button 
+          type="primary" 
+          onClick={() => handleOpenRoleDialog(record)}
+        >
+          ロール割り当て
+        </Button>
+      ),
+    },
+  ];
+
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
+    <div style={{ padding: 24 }}>
+      <Typography.Title level={4}>
         ユーザー管理
-      </Typography>
-      <Divider sx={{ mb: 3 }} />
+      </Typography.Title>
+      <Divider />
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
+        <Alert
+          message={error}
+          type="error"
+          style={{ marginBottom: 16 }}
+          showIcon
+        />
       )}
       
-      <Paper elevation={2} sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          ユーザー一覧
-        </Typography>
-        
+      <Card title="ユーザー一覧">
         {isLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-            <CircularProgress />
-          </Box>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
+            <Spin size="large" />
+          </div>
         ) : (
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>名前</TableCell>
-                  <TableCell>メールアドレス</TableCell>
-                  <TableCell>
-                    システムロール
-                    <IconButton 
-                      size="small" 
-                      onClick={() => window.open('/system-roles', '_blank')}
-                      title="システムロールの詳細を表示"
-                    >
-                      <InfoIcon fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                  <TableCell>カスタムロール</TableCell>
-                  <TableCell>アクション</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.role}</TableCell>
-                    <TableCell>
-                      {user.customRoles && user.customRoles.length > 0 ? (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                          {user.customRoles.map(role => (
-                            <Chip 
-                              key={role.id} 
-                              label={role.name}
-                              onDelete={() => handleRemoveRole(user.id, role.id)}
-                              color="primary"
-                              size="small"
-                            />
-                          ))}
-                        </Box>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">
-                          なし
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Button 
-                        variant="outlined" 
-                        size="small"
-                        onClick={() => handleOpenRoleDialog(user)}
-                      >
-                        ロール割り当て
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <Table
+            columns={columns}
+            dataSource={users.map(user => ({ ...user, key: user.id }))}
+            pagination={{ pageSize: 10 }}
+          />
         )}
-      </Paper>
+      </Card>
 
       {/* ロール割り当てダイアログ */}
-      <Dialog open={openRoleDialog} onClose={handleCloseRoleDialog}>
-        <DialogTitle>ユーザーにロールを割り当て</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {selectedUser?.name} さんに割り当てるロールを選択してください。
-          </DialogContentText>
-          
-          {assignmentSuccess && (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              ロールが正常に割り当てられました。
-            </Alert>
-          )}
-          
-          {assignmentError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {errorMessage}
-            </Alert>
-          )}
-          
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel id="role-select-label">カスタムロール</InputLabel>
-            <Select
-              labelId="role-select-label"
-              value={selectedRoleId}
-              label="カスタムロール"
-              onChange={handleRoleChange}
-            >
-              {getAvailableRoles().map((role) => (
-                <MenuItem key={role.id} value={role.id}>
-                  {role.name} - {role.description || 'なし'}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseRoleDialog}>キャンセル</Button>
-          <Button 
-            onClick={handleAssignRole} 
-            disabled={!selectedRoleId}
-            variant="contained"
-          >
-            割り当て
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+      <Modal
+        title="ユーザーにロールを割り当て"
+        open={openRoleDialog}
+        onOk={handleAssignRole}
+        onCancel={handleCloseRoleDialog}
+        okText="割り当て"
+        cancelText="キャンセル"
+      >
+        {selectedUser && (
+          <Form form={form} layout="vertical">
+            <Form.Item>
+              <Typography.Text>
+                {selectedUser?.name} さんに割り当てるロールを選択してください。
+              </Typography.Text>
+            </Form.Item>
+            
+            {assignmentSuccess && (
+              <Form.Item>
+                <Alert
+                  message="ロールが正常に割り当てられました"
+                  type="success"
+                  showIcon
+                />
+              </Form.Item>
+            )}
+            
+            {assignmentError && (
+              <Form.Item>
+                <Alert
+                  message={errorMessage}
+                  type="error"
+                  showIcon
+                />
+              </Form.Item>
+            )}
+            
+            <Form.Item label="カスタムロール" name="customRole">
+              <Select
+                placeholder="ロールを選択"
+                style={{ width: '100%' }}
+                onChange={handleRoleChange}
+                value={selectedRoleId}
+                options={getAvailableRoles().map(role => ({
+                  value: role.id,
+                  label: role.name
+                }))}
+              />
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
+    </div>
   );
 } 

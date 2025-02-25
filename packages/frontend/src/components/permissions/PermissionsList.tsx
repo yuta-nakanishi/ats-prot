@@ -1,17 +1,11 @@
 import { FC } from 'react';
 import { 
   Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
-  Paper, 
-  Chip,
-  CircularProgress,
+  Tag,
+  Spin,
   Alert,
-  Box
-} from '@mui/material';
+  Space
+} from 'antd';
 import { Permission, PermissionAction, PermissionResource } from '../../lib/types';
 
 interface PermissionsListProps {
@@ -24,15 +18,15 @@ interface PermissionsListProps {
 const getActionColor = (action: PermissionAction): string => {
   switch (action) {
     case PermissionAction.CREATE:
-      return 'success';
+      return 'green';
     case PermissionAction.READ:
-      return 'info';
+      return 'blue';
     case PermissionAction.UPDATE:
-      return 'warning';
+      return 'orange';
     case PermissionAction.DELETE:
-      return 'error';
+      return 'red';
     case PermissionAction.MANAGE:
-      return 'secondary';
+      return 'purple';
     default:
       return 'default';
   }
@@ -69,53 +63,52 @@ const getActionLabel = (action: PermissionAction): string => {
 const PermissionsList: FC<PermissionsListProps> = ({ permissions, isLoading, error }) => {
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-        <CircularProgress />
-      </Box>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
+        <Spin size="large" />
+      </div>
     );
   }
 
   if (error) {
-    return <Alert severity="error">{error}</Alert>;
+    return <Alert message={error} type="error" showIcon />;
   }
 
+  const columns = [
+    {
+      title: '権限名',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: 'アクション',
+      dataIndex: 'action',
+      key: 'action',
+      render: (_: unknown, record: Permission) => (
+        <Tag color={getActionColor(record.action)}>
+          {getActionLabel(record.action)}
+        </Tag>
+      ),
+    },
+    {
+      title: 'リソース',
+      dataIndex: 'resource',
+      key: 'resource',
+      render: (_: unknown, record: Permission) => getResourceLabel(record.resource),
+    },
+    {
+      title: '説明',
+      dataIndex: 'description',
+      key: 'description',
+    },
+  ];
+
   return (
-    <TableContainer component={Paper}>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell>権限名</TableCell>
-            <TableCell>アクション</TableCell>
-            <TableCell>リソース</TableCell>
-            <TableCell>説明</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {permissions.map((permission) => (
-            <TableRow key={permission.id}>
-              <TableCell>{permission.name}</TableCell>
-              <TableCell>
-                <Chip 
-                  label={getActionLabel(permission.action)} 
-                  color={getActionColor(permission.action) as any}
-                  size="small"
-                  variant="outlined"
-                />
-              </TableCell>
-              <TableCell>{getResourceLabel(permission.resource)}</TableCell>
-              <TableCell>{permission.description}</TableCell>
-            </TableRow>
-          ))}
-          {permissions.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={4} align="center">
-                権限が見つかりません
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <Table
+      columns={columns}
+      dataSource={permissions.map(permission => ({ ...permission, key: permission.id }))}
+      pagination={{ pageSize: 10 }}
+      locale={{ emptyText: '権限が見つかりません' }}
+    />
   );
 };
 

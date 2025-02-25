@@ -1,24 +1,19 @@
 import { FC, useState, useEffect } from 'react';
 import { 
-  Box, 
-  Typography, 
-  Paper, 
-  Chip,
-  CircularProgress,
+  Card, 
+  Typography,
+  Spin,
   Alert,
-  Grid,
+  Row,
+  Col,
   Divider,
   List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   Button,
   Tabs,
-  Tab
-} from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import SecurityIcon from '@mui/icons-material/Security';
-import PeopleIcon from '@mui/icons-material/People';
+  Tag,
+  Space
+} from 'antd';
+import { CheckCircleOutlined, SecurityScanOutlined, TeamOutlined } from '@ant-design/icons';
 import { CustomRoleWithPermissions, Permission, UserWithRoles } from '../../lib/types';
 import { permissionsApi } from '../../lib/api';
 
@@ -34,7 +29,7 @@ const CustomRoleDetail: FC<CustomRoleDetailProps> = ({ roleId, onClose, onEdit }
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState('permissions');
 
   useEffect(() => {
     const fetchRoleData = async () => {
@@ -65,8 +60,8 @@ const CustomRoleDetail: FC<CustomRoleDetailProps> = ({ roleId, onClose, onEdit }
     }
   }, [roleId]);
 
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
+  const handleTabChange = (key: string) => {
+    setActiveTab(key);
   };
 
   // 権限を機能別にグループ化する
@@ -86,135 +81,148 @@ const CustomRoleDetail: FC<CustomRoleDetailProps> = ({ roleId, onClose, onEdit }
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-        <CircularProgress />
-      </Box>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
+        <Spin size="large" />
+      </div>
     );
   }
 
   if (error) {
-    return <Alert severity="error">{error}</Alert>;
+    return <Alert message={error} type="error" />;
   }
 
   if (!roleData) {
-    return <Alert severity="warning">ロールが見つかりません</Alert>;
+    return <Alert message="ロールが見つかりません" type="warning" />;
   }
 
   const groupedPermissions = groupPermissionsByResource(permissions);
 
   return (
-    <Box>
-      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h5">{roleData.name}</Typography>
+    <div>
+      <Card style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <Typography.Title level={5}>{roleData.name}</Typography.Title>
           {onEdit && (
-            <Button variant="outlined" color="primary" onClick={onEdit}>
+            <Button type="primary" ghost onClick={onEdit}>
               編集
             </Button>
           )}
-        </Box>
+        </div>
         
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} md={6}>
-            <Typography variant="body2" color="text.secondary">
+        <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Col xs={24} md={12}>
+            <Typography.Text type="secondary">
               説明
-            </Typography>
-            <Typography variant="body1">
+            </Typography.Text>
+            <div>
               {roleData.description || '説明なし'}
-            </Typography>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Typography variant="body2" color="text.secondary">
+            </div>
+          </Col>
+          <Col xs={24} md={12}>
+            <Typography.Text type="secondary">
               作成日
-            </Typography>
-            <Typography variant="body1">
+            </Typography.Text>
+            <div>
               {new Date(roleData.createdAt).toLocaleDateString('ja-JP')}
-            </Typography>
-          </Grid>
-        </Grid>
+            </div>
+          </Col>
+        </Row>
         
-        <Divider sx={{ mb: 2 }} />
+        <Divider style={{ marginBottom: 16 }} />
         
-        <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2 }}>
-          <Tab icon={<SecurityIcon />} label="権限" />
-          <Tab icon={<PeopleIcon />} label="ユーザー" iconPosition="start" />
-        </Tabs>
-        
-        {activeTab === 0 && (
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              付与されている権限（{permissions.length}）
-            </Typography>
-            
-            {Object.entries(groupedPermissions).map(([resource, permissions]) => (
-              <Box key={resource} sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
-                  {resource}
-                </Typography>
-                
-                <List dense>
-                  {permissions.map((permission) => (
-                    <ListItem key={permission.id}>
-                      <ListItemIcon sx={{ minWidth: 30 }}>
-                        <CheckCircleIcon color="success" fontSize="small" />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <Chip 
-                              label={permission.action}
-                              size="small"
-                              variant="outlined"
-                              sx={{ mr: 1 }}
+        <Tabs
+          activeKey={activeTab}
+          onChange={handleTabChange}
+          items={[
+            {
+              key: 'permissions',
+              label: (
+                <span>
+                  <SecurityScanOutlined />
+                  権限
+                </span>
+              ),
+              children: (
+                <div>
+                  <Typography.Title level={5} style={{ marginBottom: 16 }}>
+                    付与されている権限（{permissions.length}）
+                  </Typography.Title>
+                  
+                  {Object.entries(groupedPermissions).map(([resource, permissions]) => (
+                    <div key={resource} style={{ marginBottom: 24 }}>
+                      <Typography.Title level={5} style={{ marginBottom: 8 }}>
+                        {resource}
+                      </Typography.Title>
+                      
+                      <List
+                        itemLayout="horizontal"
+                        dataSource={permissions}
+                        renderItem={(permission) => (
+                          <List.Item>
+                            <List.Item.Meta
+                              avatar={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
+                              title={
+                                <Space>
+                                  <Tag>{permission.action}</Tag>
+                                  <span>{permission.description}</span>
+                                </Space>
+                              }
                             />
-                            <Typography variant="body2">
-                              {permission.description}
-                            </Typography>
-                          </Box>
-                        }
+                          </List.Item>
+                        )}
                       />
-                    </ListItem>
+                    </div>
                   ))}
-                </List>
-              </Box>
-            ))}
-            
-            {permissions.length === 0 && (
-              <Alert severity="info">このロールには権限が付与されていません。</Alert>
-            )}
-          </Box>
-        )}
-        
-        {activeTab === 1 && (
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              割り当てられているユーザー（{users.length}）
-            </Typography>
-            
-            <List>
-              {users.map((user) => (
-                <ListItem key={user.id}>
-                  <ListItemText
-                    primary={user.name}
-                    secondary={user.email}
+                  
+                  {permissions.length === 0 && (
+                    <Alert message="このロールには権限が付与されていません。" type="info" />
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: 'users',
+              label: (
+                <span>
+                  <TeamOutlined />
+                  ユーザー
+                </span>
+              ),
+              children: (
+                <div>
+                  <Typography.Title level={5} style={{ marginBottom: 16 }}>
+                    割り当てられているユーザー（{users.length}）
+                  </Typography.Title>
+                  
+                  <List
+                    itemLayout="horizontal"
+                    dataSource={users}
+                    renderItem={(user) => (
+                      <List.Item>
+                        <List.Item.Meta
+                          title={user.name}
+                          description={user.email}
+                        />
+                      </List.Item>
+                    )}
                   />
-                </ListItem>
-              ))}
-              
-              {users.length === 0 && (
-                <Alert severity="info">このロールはどのユーザーにも割り当てられていません。</Alert>
-              )}
-            </List>
-          </Box>
-        )}
-      </Paper>
+                  
+                  {users.length === 0 && (
+                    <Alert message="このロールはどのユーザーにも割り当てられていません。" type="info" />
+                  )}
+                </div>
+              ),
+            }
+          ]}
+        />
+      </Card>
       
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button onClick={onClose} variant="outlined">
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button onClick={onClose}>
           閉じる
         </Button>
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 };
 
