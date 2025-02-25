@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -9,35 +9,49 @@ import * as jwt from 'jsonwebtoken';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<{ token: string }> {
-    const existingUser = await this.usersRepository.findOne({
-      where: { email: registerDto.email }
-    });
+    try {
+      const existingUser = await this.usersRepository.findOne({
+        where: { email: registerDto.email }
+      });
 
-    if (existingUser) {
-      throw new ConflictException('このメールアドレスは既に登録されています');
+      if (existingUser) {
+        throw new ConflictException('このメールアドレスは既に登録されています');
+      }
+
+      const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+      const user = this.usersRepository.create({
+        ...registerDto,
+        password: hashedPassword
+      });
+
+      await this.usersRepository.save(user);
+
+      const token = jwt.sign(
+        { userId: user.id, email: user.email },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '24h' }
+      );
+
+      return { token };
+    } catch (error) {
+      this.logger.error(`ユーザー登録エラー: ${error.message}`, error.stack);
+      
+      // 既に処理されている特定のエラーは再スローする
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      
+      // その他のエラーは内部サーバーエラーとして処理
+      throw new InternalServerErrorException(`ユーザー登録中に問題が発生しました: ${error.message}`);
     }
-
-    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
-    const user = this.usersRepository.create({
-      ...registerDto,
-      password: hashedPassword
-    });
-
-    await this.usersRepository.save(user);
-
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '24h' }
-    );
-
-    return { token };
   }
 
   async login(loginDto: LoginDto): Promise<{ token: string }> {

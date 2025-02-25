@@ -19,7 +19,7 @@ import { AuthModule } from './auth/auth.module';
         type: 'sqlite',
         database: join(__dirname, '..', 'recruitment.sqlite'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false,
+        synchronize: true,
         // SQLite接続の最適化
         extra: {
           // WALモードを有効化してパフォーマンスと同時アクセスを改善

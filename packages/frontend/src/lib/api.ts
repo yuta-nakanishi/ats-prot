@@ -6,8 +6,19 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true,
 });
+
+// リクエスト前にトークンをヘッダーに追加するインターセプター
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 // 認証関連のAPI
 export const authApi = {
@@ -18,6 +29,16 @@ export const authApi = {
   register: async (data: { email: string; password: string; name: string }): Promise<LoginResponse> => {
     const response = await api.post('/auth/register', data);
     return response.data;
+  },
+  logout: async (): Promise<void> => {
+    // サーバーサイドでのログアウト処理があれば呼び出し
+    try {
+      await api.post('/auth/logout');
+    } catch (error) {
+      console.error('ログアウトAPI呼び出しエラー:', error);
+    }
+    // ローカルのトークンを削除
+    localStorage.removeItem('token');
   }
 };
 

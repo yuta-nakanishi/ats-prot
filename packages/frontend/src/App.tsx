@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Typography, Space, Tabs, Button, Input, Select } from 'antd';
-import { TeamOutlined, PlusOutlined, SearchOutlined, FilterOutlined } from '@ant-design/icons';
+import { TeamOutlined, PlusOutlined, SearchOutlined, FilterOutlined, LogoutOutlined } from '@ant-design/icons';
 import { CandidateCard } from './components/CandidateCard';
 import { JobPostingList } from './components/JobPostingList';
 import { AddCandidateModal } from './components/AddCandidateModal';
@@ -9,12 +9,15 @@ import { EmailTemplateList } from './components/EmailTemplateList';
 import { Dashboard } from './components/reporting/Dashboard';
 import { CandidatesTab } from './components/CandidatesTab';
 import { Candidate, Document, Interview, Evaluation, JobPosting, EmailTemplate, initialEmailTemplates } from './types';
-import { jobPostingsApi, candidatesApi } from './lib/api';
+import { jobPostingsApi, candidatesApi, authApi } from './lib/api';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
 function App() {
+  const navigate = useNavigate();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [jobPostings, setJobPostings] = useState<JobPosting[]>([]);
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>(initialEmailTemplates);
@@ -28,6 +31,13 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // トークンの存在チェック
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
     const fetchData = async () => {
       try {
         const [candidatesData, jobPostingsData] = await Promise.all([
@@ -38,13 +48,18 @@ function App() {
         setJobPostings(jobPostingsData);
       } catch (error) {
         console.error('Error fetching data:', error);
+        // APIエラーがあれば、認証切れの可能性もあるためログインページにリダイレクト
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          localStorage.removeItem('token');
+          navigate('/login');
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [navigate]);
 
   const handleStatusChange = (id: string, status: Candidate['status']) => {
     candidatesApi.update(id, { status })
@@ -325,6 +340,19 @@ function App() {
           <TeamOutlined className="text-2xl text-blue-600" />
           <Title level={4} style={{ margin: 0 }}>採用管理システム</Title>
         </div>
+        <div>
+          <Button 
+            type="text" 
+            icon={<LogoutOutlined />} 
+            onClick={() => {
+              authApi.logout().then(() => {
+                navigate('/login');
+              });
+            }}
+          >
+            ログアウト
+          </Button>
+        </div>
       </Header>
 
       <Content className="p-6">
@@ -351,7 +379,9 @@ function App() {
           setShowJobPostingModal(false);
           setSelectedJobPosting(undefined);
         }}
-        onSubmit={selectedJobPosting ? handleUpdateJobPosting : handleAddJobPosting}
+        onSubmit={selectedJobPosting 
+          ? (updatedPosting) => handleUpdateJobPosting(updatedPosting as JobPosting)
+          : handleAddJobPosting}
         initialValues={selectedJobPosting}
       />
     </Layout>
