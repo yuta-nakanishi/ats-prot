@@ -77,7 +77,10 @@ function App({ initialTab = 'dashboard' }: AppProps) {
   };
 
   const handleAddCandidate = (newCandidate: Omit<Candidate, 'id'>) => {
-    candidatesApi.create(newCandidate)
+    candidatesApi.create({
+      ...newCandidate,
+      emailHistory: []
+    })
       .then(candidate => {
         setCandidates([candidate, ...candidates]);
       })
@@ -341,7 +344,7 @@ function App({ initialTab = 'dashboard' }: AppProps) {
         <EmailTemplateList
           templates={emailTemplates}
           onAdd={handleAddEmailTemplate}
-          onUpdate={handleEditEmailTemplate}
+          onEdit={handleEditEmailTemplate}
           onDelete={handleDeleteEmailTemplate}
         />
       )
