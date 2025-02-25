@@ -122,68 +122,52 @@ export const CandidatesTab: React.FC<Props> = ({
 
   return (
     <div className="p-4">
-      {!selectedCandidate ? (
-        <>
-          <div className="flex justify-between items-center mb-4">
-            <Space>
-              <Input 
-                placeholder="候補者を検索..." 
-                prefix={<SearchOutlined />} 
-                value={searchValue}
-                onChange={e => onSearchChange(e.target.value)}
-                style={{ width: 300 }}
-              />
-              <Select 
-                value={statusFilter} 
-                onChange={onStatusFilterChange}
-                style={{ width: 150 }}
-                suffixIcon={<FilterOutlined />}
-              >
-                <Select.Option value="all">全てのステータス</Select.Option>
-                <Select.Option value="new">新規</Select.Option>
-                <Select.Option value="reviewing">審査中</Select.Option>
-                <Select.Option value="interviewed">面接済</Select.Option>
-                <Select.Option value="offered">オファー</Select.Option>
-                <Select.Option value="rejected">不採用</Select.Option>
-              </Select>
-            </Space>
-            <PermissionGuard
-              action={PermissionAction.CREATE}
-              resource={PermissionResource.CANDIDATE}
-            >
-              <Button 
-                type="primary" 
-                icon={<UserAddOutlined />} 
-                onClick={onAddCandidate}
-              >
-                候補者を追加
-              </Button>
-            </PermissionGuard>
-          </div>
-          <CandidateList 
-            candidates={paginatedCandidates} 
-            jobPostings={jobPostings}
-            onSelectCandidate={setSelectedCandidate}
-            onStatusChange={handleStatusChange}
-            currentPage={currentPage}
-            pageSize={PAGE_SIZE}
-            total={filteredCandidates.length}
-            onPageChange={handlePageChange}
+      <div className="flex justify-between items-center mb-4">
+        <Space>
+          <Input 
+            placeholder="候補者を検索..." 
+            prefix={<SearchOutlined />} 
+            value={searchValue}
+            onChange={e => onSearchChange(e.target.value)}
+            style={{ width: 300 }}
           />
-        </>
-      ) : (
-        <CandidateDetail
-          candidate={selectedCandidate}
-          jobPostings={jobPostings}
-          onStatusChange={handleStatusChange}
-          onAddInterview={onAddInterview}
-          onUpdateInterview={onUpdateInterview}
-          onAddEvaluation={onAddEvaluation}
-          onUpdateCandidate={handleUpdateCandidate}
-          onAddDocument={onAddDocument}
-          onBack={() => setSelectedCandidate(null)}
-        />
-      )}
+          <Select 
+            value={statusFilter} 
+            onChange={onStatusFilterChange}
+            style={{ width: 150 }}
+            suffixIcon={<FilterOutlined />}
+          >
+            <Select.Option value="all">全てのステータス</Select.Option>
+            <Select.Option value="new">新規</Select.Option>
+            <Select.Option value="reviewing">審査中</Select.Option>
+            <Select.Option value="interviewed">面接済</Select.Option>
+            <Select.Option value="offered">オファー</Select.Option>
+            <Select.Option value="rejected">不採用</Select.Option>
+          </Select>
+        </Space>
+        <PermissionGuard
+          action={PermissionAction.CREATE}
+          resource={PermissionResource.CANDIDATE}
+        >
+          <Button 
+            type="primary" 
+            icon={<UserAddOutlined />} 
+            onClick={onAddCandidate}
+          >
+            候補者を追加
+          </Button>
+        </PermissionGuard>
+      </div>
+      <CandidateList 
+        candidates={paginatedCandidates} 
+        jobPostings={jobPostings}
+        onSelectCandidate={setSelectedCandidate}
+        onStatusChange={handleStatusChange}
+        currentPage={currentPage}
+        pageSize={PAGE_SIZE}
+        total={filteredCandidates.length}
+        onPageChange={handlePageChange}
+      />
     </div>
   );
 };

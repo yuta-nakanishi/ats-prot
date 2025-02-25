@@ -14,6 +14,7 @@ export const EvaluationModal: React.FC<Props> = ({
   isOpen,
   onClose,
   onSubmit,
+  interviewId,
   interviewer
 }) => {
   const [form] = Form.useForm();
