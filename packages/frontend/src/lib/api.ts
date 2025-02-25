@@ -2,10 +2,11 @@ import axios from 'axios';
 import type { JobPosting, Candidate, Interview, Evaluation, LoginResponse } from '../types';
 
 const api = axios.create({
-  baseURL: 'http://localhost:3000',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
 });
 
 // リクエスト前にトークンをヘッダーに追加するインターセプター
@@ -23,17 +24,23 @@ api.interceptors.request.use(
 // 認証関連のAPI
 export const authApi = {
   login: async (data: { email: string; password: string }): Promise<LoginResponse> => {
-    const response = await api.post('/auth/login', data);
+    const response = await api.post('/auth/login', data, {
+      withCredentials: true
+    });
     return response.data;
   },
   register: async (data: { email: string; password: string; name: string }): Promise<LoginResponse> => {
-    const response = await api.post('/auth/register', data);
+    const response = await api.post('/auth/register', data, {
+      withCredentials: true
+    });
     return response.data;
   },
   logout: async (): Promise<void> => {
     // サーバーサイドでのログアウト処理があれば呼び出し
     try {
-      await api.post('/auth/logout');
+      await api.post('/auth/logout', {}, {
+        withCredentials: true
+      });
     } catch (error) {
       console.error('ログアウトAPI呼び出しエラー:', error);
     }

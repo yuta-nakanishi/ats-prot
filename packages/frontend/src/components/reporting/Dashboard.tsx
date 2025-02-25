@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Row, Col, Statistic, Typography, DatePicker, Space, Select } from 'antd';
+import { Card, Row, Col, Statistic, Typography, DatePicker, Space, Select, Form } from 'antd';
 import {
   UserOutlined,
   TeamOutlined,
@@ -29,6 +29,7 @@ export const Dashboard: React.FC<Props> = ({ candidates, jobPostings }) => {
     new Date()
   ]);
   const [selectedJob, setSelectedJob] = useState<string>('all');
+  const [form] = Form.useForm();
 
   const filteredCandidates = candidates.filter(candidate => {
     const appliedDate = new Date(candidate.appliedDate);
@@ -68,29 +69,35 @@ export const Dashboard: React.FC<Props> = ({ candidates, jobPostings }) => {
 
   return (
     <div className="space-y-6">
-      <Space className="w-full justify-between">
-        <Title level={4}>採用ダッシュボード</Title>
-        <Space>
-          <Select
-            value={selectedJob}
-            onChange={setSelectedJob}
-            style={{ width: 200 }}
-          >
-            <Select.Option value="all">全ての求人</Select.Option>
-            {jobPostings.map(job => (
-              <Select.Option key={job.id} value={job.id}>{job.title}</Select.Option>
-            ))}
-          </Select>
-          <RangePicker
-            value={[dateRange[0], dateRange[1]].map(date => dayjs(date))}
-            onChange={(dates) => {
-              if (dates) {
-                setDateRange([dates[0].toDate(), dates[1].toDate()]);
-              }
-            }}
-          />
+      <Form form={form}>
+        <Space className="w-full justify-between">
+          <Title level={4}>採用ダッシュボード</Title>
+          <Space>
+            <Form.Item noStyle>
+              <Select
+                value={selectedJob}
+                onChange={setSelectedJob}
+                style={{ width: 200 }}
+              >
+                <Select.Option value="all">全ての求人</Select.Option>
+                {jobPostings.map(job => (
+                  <Select.Option key={job.id} value={job.id}>{job.title}</Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+            <Form.Item noStyle>
+              <RangePicker
+                value={[dayjs(dateRange[0]), dayjs(dateRange[1])]}
+                onChange={(dates) => {
+                  if (dates && dates[0] && dates[1]) {
+                    setDateRange([dates[0].toDate(), dates[1].toDate()]);
+                  }
+                }}
+              />
+            </Form.Item>
+          </Space>
         </Space>
-      </Space>
+      </Form>
 
       <Row gutter={[16, 16]}>
         <Col span={6}>

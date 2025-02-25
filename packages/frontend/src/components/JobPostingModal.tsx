@@ -27,8 +27,8 @@ export const JobPostingModal: React.FC<Props> = ({
         requirements: initialValues.requirements.join('\n'),
         preferredSkills: initialValues.preferredSkills.join('\n'),
         closingDate: initialValues.closingDate ? dayjs(initialValues.closingDate) : undefined,
-        salaryMin: initialValues.salaryRange?.min || initialValues.salaryRangeMin || 0,
-        salaryMax: initialValues.salaryRange?.max || initialValues.salaryRangeMax || 0
+        salaryMin: initialValues.salaryRange?.min || 0,
+        salaryMax: initialValues.salaryRange?.max || 0
       });
     }
   }, [isOpen, initialValues, form]);
@@ -64,10 +64,13 @@ export const JobPostingModal: React.FC<Props> = ({
       onCancel={onClose}
       onOk={handleSubmit}
       width={800}
+      destroyOnClose={false}
+      forceRender
     >
       <Form
         form={form}
         layout="vertical"
+        preserve={false}
         initialValues={{
           title: '',
           department: '',
@@ -165,7 +168,6 @@ export const JobPostingModal: React.FC<Props> = ({
                 min={0}
                 step={1000000}
                 formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
                 placeholder="最低給与"
               />
             </Form.Item>
@@ -179,7 +181,6 @@ export const JobPostingModal: React.FC<Props> = ({
                 min={0}
                 step={1000000}
                 formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
                 placeholder="最高給与"
               />
             </Form.Item>

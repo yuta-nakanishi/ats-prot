@@ -1,36 +1,34 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, Form, Input, Button, Typography, message, Divider, Spin } from 'antd';
+import { Card, Typography, Divider, Button, Form, Input, message, Spin } from 'antd';
 import { useAuth } from '@/contexts/AuthContext';
 
 const { Title, Text } = Typography;
 
-export const LoginPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
+export default function Login() {
   const [mounted, setMounted] = useState(false);
-  const { login } = useAuth();
-  const router = useRouter();
+  const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
+  const { login } = useAuth();
 
-  // クライアントサイドでのみマウントするためのフラグ
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const onFinish = async (values: { username: string; password: string }) => {
+  const onFinish = async (values: { email: string; password: string }) => {
     setLoading(true);
     try {
-      await login(values.username, values.password);
+      await login(values.email, values.password);
     } catch (error) {
       console.error('Login failed:', error);
-      message.error('ログインに失敗しました。ユーザー名とパスワードを確認してください。');
+      message.error('ログインに失敗しました。メールアドレスとパスワードを確認してください。');
     } finally {
       setLoading(false);
     }
   };
 
-  const goToRegisterPage = () => {
-    // 直接的なURLナビゲーションを使用
+  const goToRegister = () => {
     window.location.href = '/register';
   };
 
@@ -55,7 +53,10 @@ export const LoginPage: React.FC = () => {
           <Title level={3}>採用管理システム</Title>
         </div>
         <Form form={form} name="login" onFinish={onFinish} layout="vertical">
-          <Form.Item name="username" label="ユーザー名" rules={[{ required: true, message: 'ユーザー名を入力してください' }]}>
+          <Form.Item name="email" label="メールアドレス" rules={[
+            { required: true, message: 'メールアドレスを入力してください' },
+            { type: 'email', message: '有効なメールアドレスを入力してください' }
+          ]}>
             <Input size="large" />
           </Form.Item>
           <Form.Item name="password" label="パスワード" rules={[{ required: true, message: 'パスワードを入力してください' }]}>
@@ -75,7 +76,7 @@ export const LoginPage: React.FC = () => {
           <br />
           <Button 
             type="link" 
-            onClick={goToRegisterPage} 
+            onClick={goToRegister} 
             style={{ marginTop: 8, display: 'inline-block' }}
           >
             新規登録
@@ -84,4 +85,4 @@ export const LoginPage: React.FC = () => {
       </Card>
     </div>
   );
-};
+} 

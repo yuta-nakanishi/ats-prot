@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, message } from 'antd';
 import { UserOutlined, LockOutlined, IdcardOutlined } from '@ant-design/icons';
-import { authApi } from '../../lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import axios from 'axios';
 
 interface Props {
@@ -9,13 +9,20 @@ interface Props {
 }
 
 export const RegisterForm: React.FC<Props> = ({ onSuccess }) => {
-  const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const { register } = useAuth();
+  const [form] = Form.useForm();
+
+  // クライアントサイドでのみマウントするためのフラグ
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSubmit = async (values: { email: string; password: string; name: string }) => {
     try {
       setLoading(true);
-      const { token } = await authApi.register(values);
-      localStorage.setItem('token', token);
+      await register(values.email, values.password, values.name);
       message.success('登録が完了しました');
       onSuccess();
     } catch (error) {
@@ -48,8 +55,13 @@ export const RegisterForm: React.FC<Props> = ({ onSuccess }) => {
     }
   };
 
+  if (!mounted) {
+    return <div>フォームを読み込み中...</div>;
+  }
+
   return (
     <Form
+      form={form}
       name="register"
       onFinish={handleSubmit}
       layout="vertical"

@@ -1,5 +1,7 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
-import { Layout, Typography, Space, Tabs, Button, Input, Select } from 'antd';
+import { Layout, Typography, Space, Tabs, Button, Input, Select, Spin } from 'antd';
 import { TeamOutlined, PlusOutlined, SearchOutlined, FilterOutlined, LogoutOutlined } from '@ant-design/icons';
 import { CandidateCard } from './components/CandidateCard';
 import { JobPostingList } from './components/JobPostingList';
@@ -9,15 +11,22 @@ import { EmailTemplateList } from './components/EmailTemplateList';
 import { Dashboard } from './components/reporting/Dashboard';
 import { CandidatesTab } from './components/CandidatesTab';
 import { Candidate, Document, Interview, Evaluation, JobPosting, EmailTemplate, initialEmailTemplates } from './types';
-import { jobPostingsApi, candidatesApi, authApi } from './lib/api';
-import { useNavigate } from 'react-router-dom';
+import { jobPostingsApi, candidatesApi } from './lib/api';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from './contexts/AuthContext';
 import axios from 'axios';
 
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
-function App() {
-  const navigate = useNavigate();
+interface AppProps {
+  initialTab?: 'dashboard' | 'candidates' | 'jobs' | 'templates';
+}
+
+function App({ initialTab = 'dashboard' }: AppProps) {
+  const router = useRouter();
+  const { logout } = useAuth();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [jobPostings, setJobPostings] = useState<JobPosting[]>([]);
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>(initialEmailTemplates);
@@ -31,13 +40,6 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // トークンの存在チェック
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-
     const fetchData = async () => {
       try {
         const [candidatesData, jobPostingsData] = await Promise.all([
@@ -50,8 +52,7 @@ function App() {
         console.error('Error fetching data:', error);
         // APIエラーがあれば、認証切れの可能性もあるためログインページにリダイレクト
         if (axios.isAxiosError(error) && error.response?.status === 401) {
-          localStorage.removeItem('token');
-          navigate('/login');
+          logout();
         }
       } finally {
         setLoading(false);
@@ -59,7 +60,7 @@ function App() {
     };
 
     fetchData();
-  }, [navigate]);
+  }, [logout]);
 
   const handleStatusChange = (id: string, status: Candidate['status']) => {
     candidatesApi.update(id, { status })
@@ -333,6 +334,10 @@ function App() {
     }
   ];
 
+  const handleLogout = () => {
+    logout();
+  };
+
   return (
     <Layout className="min-h-screen">
       <Header className="bg-white px-6 flex items-center justify-between">
@@ -344,11 +349,7 @@ function App() {
           <Button 
             type="text" 
             icon={<LogoutOutlined />} 
-            onClick={() => {
-              authApi.logout().then(() => {
-                navigate('/login');
-              });
-            }}
+            onClick={handleLogout}
           >
             ログアウト
           </Button>
@@ -358,10 +359,12 @@ function App() {
       <Content className="p-6">
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="text-lg">Loading...</div>
+            <Spin size="large" tip="読み込み中..." spinning={true}>
+              <div className="h-32 w-full" />
+            </Spin>
           </div>
         ) : (
-          <Tabs defaultActiveKey="dashboard" items={tabItems} />
+          <Tabs defaultActiveKey={initialTab} items={tabItems} />
         )}
       </Content>
 

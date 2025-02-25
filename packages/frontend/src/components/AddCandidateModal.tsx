@@ -57,10 +57,13 @@ export const AddCandidateModal: React.FC<Props> = ({
       onCancel={onClose}
       onOk={handleSubmit}
       width={800}
+      destroyOnClose={false}
+      forceRender
     >
       <Form
         form={form}
         layout="vertical"
+        preserve={false}
       >
         <Form.Item
           name="jobPostingId"
@@ -148,7 +151,6 @@ export const AddCandidateModal: React.FC<Props> = ({
               min={0}
               step={1000000}
               formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
               placeholder="6000000"
             />
           </Form.Item>
@@ -161,7 +163,6 @@ export const AddCandidateModal: React.FC<Props> = ({
               min={0}
               step={1000000}
               formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
               placeholder="5000000"
             />
           </Form.Item>

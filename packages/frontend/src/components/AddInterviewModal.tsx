@@ -44,6 +44,7 @@ export const AddInterviewModal: React.FC<Props> = ({
       open={isOpen}
       onCancel={onClose}
       onOk={handleSubmit}
+      destroyOnClose={true}
     >
       <p className="mb-4">候補者: {candidateName}</p>
       
