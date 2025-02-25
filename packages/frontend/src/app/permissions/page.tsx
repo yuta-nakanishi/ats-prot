@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Typography, Tabs, Tab, Box, Paper, Button, Divider, Dialog } from '@mui/material';
+import { Typography, Tabs, Card, Button, Divider, Modal } from 'antd';
 import { permissionsApi } from '../../lib/api';
 import { Permission, CustomRole, PermissionAction, PermissionResource } from '../../lib/types';
 import PermissionsList from '../../components/permissions/PermissionsList';
@@ -9,8 +9,10 @@ import CustomRolesList from '../../components/permissions/CustomRolesList';
 import CustomRoleForm from '../../components/permissions/CustomRoleForm';
 import CustomRoleDetail from '../../components/permissions/CustomRoleDetail';
 
+const { Title, Text } = Typography;
+
 export default function PermissionsPage() {
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState('1');
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,86 +78,91 @@ export default function PermissionsPage() {
     setSelectedRole(null);
   };
 
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
+  const handleTabChange = (key: string) => {
+    setActiveTab(key);
   };
 
-  return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        権限管理
-      </Typography>
-      <Divider sx={{ mb: 3 }} />
-      
-      <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
-        <Tabs value={activeTab} onChange={handleTabChange}>
-          <Tab label="システム権限" />
-          <Tab label="カスタムロール" />
-        </Tabs>
-        
-        <Box sx={{ mt: 2 }}>
-          {activeTab === 0 && (
-            <>
-              <Typography variant="h6" gutterBottom>
-                システム権限一覧
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                システムで定義されている権限の一覧です。これらの権限はカスタムロールに付与できます。
-              </Typography>
-              <PermissionsList permissions={permissions} isLoading={isLoading} error={error} />
-            </>
-          )}
+  // タブアイテムの定義
+  const tabItems = [
+    {
+      key: '1',
+      label: 'システム権限',
+      children: (
+        <>
+          <Title level={5}>システム権限一覧</Title>
+          <Text type="secondary" style={{ marginBottom: 16, display: 'block' }}>
+            システムで定義されている権限の一覧です。これらの権限はカスタムロールに付与できます。
+          </Text>
+          <PermissionsList permissions={permissions} isLoading={isLoading} error={error} />
+        </>
+      )
+    },
+    {
+      key: '2',
+      label: 'カスタムロール',
+      children: (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Title level={5} style={{ margin: 0 }}>
+              カスタムロール一覧
+            </Title>
+            <Button 
+              type="primary"
+              onClick={() => setShowCreateRole(true)}
+            >
+              新規ロール作成
+            </Button>
+          </div>
           
-          {activeTab === 1 && (
-            <>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">
-                  カスタムロール一覧
-                </Typography>
-                <Button 
-                  variant="contained" 
-                  color="primary"
-                  onClick={() => setShowCreateRole(true)}
-                >
-                  新規ロール作成
-                </Button>
-              </Box>
-              
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                会社内のカスタムロールを管理できます。カスタムロールにはシステム権限を組み合わせて付与できます。
-              </Typography>
-              
-              {showCreateRole ? (
-                <Paper elevation={3} sx={{ p: 2, mb: 3 }}>
-                  <Typography variant="h6" gutterBottom>
-                    新規カスタムロール作成
-                  </Typography>
-                  <CustomRoleForm 
-                    permissions={permissions} 
-                    onSubmit={handleCreateRole}
-                    onCancel={() => setShowCreateRole(false)}
-                  />
-                </Paper>
-              ) : null}
-              
-              <CustomRolesList 
-                customRoles={customRoles} 
-                isLoading={isLoading} 
-                error={error}
-                onDelete={handleDeleteRole}
-                onViewDetails={handleViewRoleDetails}
+          <Text type="secondary" style={{ marginBottom: 16, display: 'block' }}>
+            会社内のカスタムロールを管理できます。カスタムロールにはシステム権限を組み合わせて付与できます。
+          </Text>
+          
+          {showCreateRole ? (
+            <Card style={{ marginBottom: 24 }}>
+              <Title level={5}>新規カスタムロール作成</Title>
+              <CustomRoleForm 
+                permissions={permissions} 
+                onSubmit={handleCreateRole}
+                onCancel={() => setShowCreateRole(false)}
               />
-            </>
-          )}
-        </Box>
-      </Paper>
+            </Card>
+          ) : null}
+          
+          <CustomRolesList 
+            customRoles={customRoles} 
+            isLoading={isLoading} 
+            error={error}
+            onDelete={handleDeleteRole}
+            onViewDetails={handleViewRoleDetails}
+          />
+        </>
+      )
+    }
+  ];
+
+  return (
+    <div style={{ padding: 24 }}>
+      <Title level={4}>
+        権限管理
+      </Title>
+      <Divider />
+      
+      <Card>
+        <Tabs 
+          activeKey={activeTab} 
+          onChange={handleTabChange} 
+          items={tabItems}
+        />
+      </Card>
 
       {/* ロール詳細ダイアログ */}
-      <Dialog
+      <Modal
+        title="ロール詳細"
         open={showRoleDetails}
-        onClose={handleCloseRoleDetails}
-        maxWidth="md"
-        fullWidth
+        onCancel={handleCloseRoleDetails}
+        footer={null}
+        width={800}
       >
         {selectedRole && (
           <CustomRoleDetail 
@@ -163,7 +170,7 @@ export default function PermissionsPage() {
             onClose={handleCloseRoleDetails} 
           />
         )}
-      </Dialog>
-    </Box>
+      </Modal>
+    </div>
   );
 } 
