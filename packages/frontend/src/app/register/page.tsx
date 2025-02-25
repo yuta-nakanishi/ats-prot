@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, Typography, Divider, Button, Form, Input, message, Spin } from 'antd';
+import { Card, Typography, Divider, Button, Form, Input, message, Spin, Alert } from 'antd';
 import { UserOutlined, LockOutlined, IdcardOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -12,6 +12,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
   const { register } = useAuth();
+  const [registerError, setRegisterError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -20,12 +21,15 @@ export default function Register() {
   const handleSubmit = async (values: { email: string; password: string; name: string }) => {
     try {
       setLoading(true);
+      setRegisterError(null); // エラーをリセット
       await register(values.email, values.password, values.name);
       message.success('登録が完了しました');
       // 成功時にはAuthContextがダッシュボードにリダイレクトします
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration error:', error);
-      message.error('登録に失敗しました。再度お試しください。');
+      const errorMessage = error.message || '登録に失敗しました。再度お試しください。';
+      message.error(errorMessage);
+      setRegisterError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -56,6 +60,18 @@ export default function Register() {
           <Title level={3}>採用管理システム</Title>
           <Title level={4} style={{ fontWeight: 'normal', margin: 0 }}>新規アカウント登録</Title>
         </div>
+        
+        {registerError && (
+          <Alert
+            message="登録エラー"
+            description={registerError}
+            type="error"
+            showIcon
+            style={{ marginBottom: 16 }}
+            closable
+            onClose={() => setRegisterError(null)}
+          />
+        )}
         
         <Form
           form={form}

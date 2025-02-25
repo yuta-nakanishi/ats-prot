@@ -94,3 +94,92 @@ export interface EmailTemplate {
   type: 'interview_invitation' | 'offer' | 'rejection' | 'general';
   variables: string[];
 }
+
+// 権限システム関連の型
+export enum PermissionAction {
+  CREATE = 'create',
+  READ = 'read',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  MANAGE = 'manage',
+}
+
+export enum PermissionResource {
+  COMPANY = 'company',
+  USER = 'user',
+  DEPARTMENT = 'department',
+  TEAM = 'team',
+  JOB_POSTING = 'job_posting',
+  CANDIDATE = 'candidate',
+  INTERVIEW = 'interview',
+  EVALUATION = 'evaluation',
+  REPORT = 'report',
+}
+
+export interface Permission {
+  id: string;
+  name: string;
+  action: PermissionAction;
+  resource: PermissionResource;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomRole {
+  id: string;
+  name: string;
+  description?: string;
+  companyId: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomRoleWithPermissions extends CustomRole {
+  permissions: Permission[];
+}
+
+export interface UserWithRoles {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  customRoles: CustomRole[];
+}
+
+export interface ResourcePermission {
+  id: string;
+  userId: string;
+  resourceType: string;
+  resourceId: string;
+  action: PermissionAction;
+  isGranted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCustomRoleDto {
+  name: string;
+  description?: string;
+  permissionIds: string[];
+}
+
+export interface UpdateCustomRoleDto {
+  name?: string;
+  description?: string;
+  permissionIds?: string[];
+}
+
+export interface AssignCustomRoleDto {
+  userId: string;
+  customRoleId: string;
+}
+
+export interface CreateResourcePermissionDto {
+  userId: string;
+  resourceType: string;
+  resourceId: string;
+  action: PermissionAction;
+  isGranted: boolean;
+}

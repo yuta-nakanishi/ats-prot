@@ -16,12 +16,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from './contexts/AuthContext';
 import axios from 'axios';
+import PermissionGuard from './components/permissions/PermissionGuard';
+import { PermissionAction, PermissionResource } from './lib/types';
 
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
 interface AppProps {
-  initialTab?: 'dashboard' | 'candidates' | 'jobs' | 'templates';
+  initialTab?: 'dashboard' | 'candidates' | 'jobs' | 'templates' | 'users' | 'permissions';
 }
 
 function App({ initialTab = 'dashboard' }: AppProps) {
@@ -279,16 +281,21 @@ function App({ initialTab = 'dashboard' }: AppProps) {
       children: (
         <div>
           <Space className="w-full mb-4" size="middle">
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => {
-                setSelectedJobPosting(undefined);
-                setShowJobPostingModal(true);
-              }}
+            <PermissionGuard
+              action={PermissionAction.CREATE}
+              resource={PermissionResource.JOB_POSTING}
             >
-              求人を追加
-            </Button>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => {
+                  setSelectedJobPosting(undefined);
+                  setShowJobPostingModal(true);
+                }}
+              >
+                求人を追加
+              </Button>
+            </PermissionGuard>
             <Input
               placeholder="求人を検索..."
               prefix={<SearchOutlined />}
@@ -299,18 +306,25 @@ function App({ initialTab = 'dashboard' }: AppProps) {
             <Select
               value={jobStatusFilter}
               onChange={(value) => setJobStatusFilter(value)}
-              style={{ width: 150 }}
-              prefix={<FilterOutlined />}
-            >
-              <Select.Option value="all">全てのステータス</Select.Option>
-              <Select.Option value="open">公開中</Select.Option>
-              <Select.Option value="closed">終了</Select.Option>
-              <Select.Option value="draft">下書き</Select.Option>
-            </Select>
+              placeholder="ステータス"
+              style={{ width: 140 }}
+              options={[
+                { value: 'all', label: '全て' },
+                { value: 'open', label: '公開中' },
+                { value: 'closed', label: '終了' },
+                { value: 'draft', label: '下書き' },
+              ]}
+              suffixIcon={<FilterOutlined />}
+            />
           </Space>
-
           <JobPostingList
-            jobPostings={filteredJobPostings}
+            jobPostings={jobPostings.filter(jp => {
+              // フィルタリング
+              const matchesSearch = jp.title.toLowerCase().includes(jobSearch.toLowerCase()) ||
+                jp.department.toLowerCase().includes(jobSearch.toLowerCase());
+              const matchesStatus = jobStatusFilter === 'all' || jp.status === jobStatusFilter;
+              return matchesSearch && matchesStatus;
+            })}
             onEdit={(jobPosting) => {
               setSelectedJobPosting(jobPosting);
               setShowJobPostingModal(true);
@@ -322,13 +336,35 @@ function App({ initialTab = 'dashboard' }: AppProps) {
     },
     {
       key: 'templates',
-      label: 'メールテンプレート',
+      label: 'テンプレート',
       children: (
         <EmailTemplateList
           templates={emailTemplates}
           onAdd={handleAddEmailTemplate}
-          onEdit={handleEditEmailTemplate}
+          onUpdate={handleEditEmailTemplate}
           onDelete={handleDeleteEmailTemplate}
+        />
+      )
+    },
+    {
+      key: 'users',
+      label: 'ユーザー管理',
+      children: (
+        <iframe
+          src="/users"
+          style={{ width: '100%', height: '80vh', border: 'none' }}
+          title="ユーザー管理"
+        />
+      )
+    },
+    {
+      key: 'permissions',
+      label: '権限管理',
+      children: (
+        <iframe
+          src="/permissions"
+          style={{ width: '100%', height: '80vh', border: 'none' }}
+          title="権限管理"
         />
       )
     }

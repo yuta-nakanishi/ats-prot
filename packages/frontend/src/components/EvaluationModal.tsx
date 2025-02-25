@@ -34,11 +34,13 @@ export const EvaluationModal: React.FC<Props> = ({
       const evaluation: Omit<Evaluation, 'id'> = {
         evaluator: values.evaluator,
         date: values.date,
-        technicalSkills: values.technicalSkills,
-        communication: values.communication,
-        problemSolving: values.problemSolving,
-        teamwork: values.teamwork,
-        culture: values.culture,
+        criteria: {
+          technicalSkills: values.technicalSkills,
+          communication: values.communication,
+          problemSolving: values.problemSolving,
+          teamwork: values.teamwork,
+          culture: values.culture,
+        },
         comments: values.comments
       };
       onSubmit(evaluation);

@@ -58,9 +58,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTimeout(() => {
         router.push('/dashboard');
       }, 100);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login failed:', error);
-      throw error;
+      // エラーステータスコードに基づいたエラーメッセージを設定
+      if (error.response) {
+        if (error.response.status === 401) {
+          throw new Error('アカウントが存在しないか、メールアドレスまたはパスワードが間違っています。');
+        } else if (error.response.status === 403) {
+          throw new Error('アカウントが無効化されています。管理者にお問い合わせください。');
+        } else {
+          throw new Error('ログイン処理中にエラーが発生しました。しばらく経ってからもう一度お試しください。');
+        }
+      } else {
+        throw new Error('サーバーに接続できませんでした。インターネット接続を確認してください。');
+      }
     }
   };
 
@@ -81,9 +92,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTimeout(() => {
         router.push('/dashboard');
       }, 100);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration failed:', error);
-      throw error;
+      // エラーステータスコードに基づいたエラーメッセージを設定
+      if (error.response) {
+        if (error.response.status === 400) {
+          throw new Error('入力情報に問題があります。正しい情報を入力してください。');
+        } else if (error.response.status === 409) {
+          throw new Error('このメールアドレスは既に登録されています。別のメールアドレスを使用してください。');
+        } else {
+          throw new Error('登録処理中にエラーが発生しました。しばらく経ってからもう一度お試しください。');
+        }
+      } else {
+        throw new Error('サーバーに接続できませんでした。インターネット接続を確認してください。');
+      }
     }
   };
 

@@ -1,8 +1,9 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -25,5 +26,25 @@ export class AuthController {
   @ApiOperation({ summary: 'ログアウト' })
   logout() {
     return { success: true };
+  }
+}
+
+@ApiTags('users')
+@Controller('users')
+export class UsersController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'すべてのユーザーを取得' })
+  getAllUsers() {
+    return this.authService.getAllUsers();
+  }
+
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '特定のユーザーを取得' })
+  getUserById(@Param('id') id: string) {
+    return this.authService.getUserById(id);
   }
 }

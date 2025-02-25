@@ -7,6 +7,8 @@ import { JobPostingsModule } from './job-postings/job-postings.module';
 import { InterviewsModule } from './interviews/interviews.module';
 import { EvaluationsModule } from './evaluations/evaluations.module';
 import { AuthModule } from './auth/auth.module';
+import { CompaniesModule } from './companies/companies.module';
+import { PermissionsModule } from './permissions/permissions.module';
 
 @Module({
   imports: [
@@ -48,6 +50,8 @@ import { AuthModule } from './auth/auth.module';
     InterviewsModule,
     EvaluationsModule,
     AuthModule,
+    CompaniesModule,
+    PermissionsModule,
   ],
 })
 export class AppModule {}

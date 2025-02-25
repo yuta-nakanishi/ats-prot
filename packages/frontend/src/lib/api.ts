@@ -1,5 +1,22 @@
 import axios from 'axios';
-import type { JobPosting, Candidate, Interview, Evaluation, LoginResponse } from '../types';
+import type { LoginResponse } from '../types';
+import type { 
+  JobPosting, 
+  Candidate, 
+  Interview, 
+  Evaluation, 
+  Permission,
+  CustomRole,
+  CustomRoleWithPermissions,
+  CreateCustomRoleDto,
+  UpdateCustomRoleDto,
+  AssignCustomRoleDto,
+  UserWithRoles,
+  ResourcePermission,
+  CreateResourcePermissionDto,
+  PermissionAction,
+  PermissionResource
+} from './types';
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
@@ -46,6 +63,26 @@ export const authApi = {
     }
     // ローカルのトークンを削除
     localStorage.removeItem('token');
+  },
+  // 全ユーザー情報を取得
+  getAllUsers: async (): Promise<UserWithRoles[]> => {
+    try {
+      const response = await api.get<UserWithRoles[]>('/users');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      throw error;
+    }
+  },
+  // 特定のユーザー情報を取得
+  getUserById: async (userId: string): Promise<UserWithRoles> => {
+    try {
+      const response = await api.get<UserWithRoles>(`/users/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching user ${userId}:`, error);
+      throw error;
+    }
   }
 };
 
@@ -139,5 +176,190 @@ export const evaluationsApi = {
   },
   delete: async (id: string) => {
     await api.delete(`/evaluations/${id}`);
+  },
+};
+
+// 権限関連のAPI
+export const permissionsApi = {
+  // 全ての権限を取得
+  getAllPermissions: async () => {
+    try {
+      const response = await api.get<Permission[]>('/permissions');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching permissions:', error);
+      throw error;
+    }
+  },
+
+  // カスタムロール関連
+  getCompanyCustomRoles: async () => {
+    try {
+      const response = await api.get<CustomRole[]>('/custom-roles');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching custom roles:', error);
+      throw error;
+    }
+  },
+
+  getCustomRoleById: async (id: string) => {
+    try {
+      const response = await api.get<CustomRoleWithPermissions>(`/custom-roles/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching custom role ${id}:`, error);
+      throw error;
+    }
+  },
+
+  createCustomRole: async (data: CreateCustomRoleDto) => {
+    try {
+      const response = await api.post<CustomRole>('/custom-roles', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating custom role:', error);
+      throw error;
+    }
+  },
+
+  updateCustomRole: async (id: string, data: UpdateCustomRoleDto) => {
+    try {
+      const response = await api.patch<CustomRole>(`/custom-roles/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating custom role ${id}:`, error);
+      throw error;
+    }
+  },
+
+  deleteCustomRole: async (id: string) => {
+    try {
+      await api.delete(`/custom-roles/${id}`);
+      return true;
+    } catch (error) {
+      console.error(`Error deleting custom role ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // ユーザーにカスタムロールを割り当て
+  assignCustomRoleToUser: async (data: AssignCustomRoleDto) => {
+    try {
+      const response = await api.post('/custom-roles/assign', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error assigning custom role to user:', error);
+      if (error.response && error.response.status === 403) {
+        console.error('アクセス権限がありません。ユーザーに必要な権限（ユーザー管理権限）が付与されているか確認してください。');
+        throw new Error('アクセス権限がありません。ユーザー管理権限が必要です。');
+      }
+      throw error;
+    }
+  },
+
+  // ユーザーからカスタムロールを削除
+  removeCustomRoleFromUser: async (data: AssignCustomRoleDto) => {
+    try {
+      const response = await api.post('/custom-roles/unassign', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error removing custom role from user:', error);
+      throw error;
+    }
+  },
+
+  // ユーザーとそのロール情報を取得
+  getUserWithRoles: async (userId: string) => {
+    try {
+      const response = await api.get<UserWithRoles>(`/users/${userId}/roles`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching user roles for ${userId}:`, error);
+      throw error;
+    }
+  },
+
+  // リソース権限関連
+  getResourcePermissions: async (userId: string) => {
+    try {
+      const response = await api.get<ResourcePermission[]>(`/resource-permissions?userId=${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching resource permissions for user ${userId}:`, error);
+      throw error;
+    }
+  },
+
+  createResourcePermission: async (data: CreateResourcePermissionDto) => {
+    try {
+      const response = await api.post<ResourcePermission>('/resource-permissions', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating resource permission:', error);
+      throw error;
+    }
+  },
+
+  deleteResourcePermission: async (id: string) => {
+    try {
+      await api.delete(`/resource-permissions/${id}`);
+      return true;
+    } catch (error) {
+      console.error(`Error deleting resource permission ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // ユーザーの権限チェック
+  checkPermission: async (action: PermissionAction, resource: PermissionResource) => {
+    try {
+      const response = await api.get<{ hasPermission: boolean }>
+        (`/permissions/check?action=${action}&resource=${resource}`);
+      return response.data.hasPermission;
+    } catch (error) {
+      console.error(`Error checking permission:`, error);
+      throw error;
+    }
+  },
+
+  // リソース特有の権限チェック
+  checkResourcePermission: async (
+    action: PermissionAction, 
+    resourceType: string, 
+    resourceId: string
+  ) => {
+    try {
+      const response = await api.get<{ hasPermission: boolean }>
+        (`/permissions/check-resource?action=${action}&resourceType=${resourceType}&resourceId=${resourceId}`);
+      return response.data.hasPermission;
+    } catch (error: any) {
+      console.error(`Error checking resource permission:`, error);
+      // 一時的な処理として、APIエンドポイントが存在しない場合やエラーが発生した場合でも
+      // アプリケーションのクラッシュを防ぐためにfalseを返す
+      return false;
+    }
+  },
+
+  // カスタムロールに割り当てられたユーザーの取得
+  getUsersByCustomRoleId: async (roleId: string) => {
+    try {
+      const response = await api.get<UserWithRoles[]>(`/custom-roles/${roleId}/users`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching users for custom role ${roleId}:`, error);
+      throw error;
+    }
+  },
+
+  // カスタムロールに割り当てられた権限の取得
+  getPermissionsByCustomRoleId: async (roleId: string) => {
+    try {
+      const response = await api.get<Permission[]>(`/custom-roles/${roleId}/permissions`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching permissions for custom role ${roleId}:`, error);
+      throw error;
+    }
   },
 };

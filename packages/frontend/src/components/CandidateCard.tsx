@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Tag, Button, Space, Typography, Descriptions, Select, Collapse, Rate, List } from 'antd';
 import {
   UserOutlined,
@@ -136,7 +136,7 @@ const EvaluationSection: React.FC<{ evaluation: Evaluation }> = ({ evaluation })
 );
 
 export const CandidateCard: React.FC<Props> = ({
-  candidate,
+  candidate: initialCandidate,
   jobPostings,
   onStatusChange,
   onAddInterview,
@@ -145,6 +145,7 @@ export const CandidateCard: React.FC<Props> = ({
   onUpdateCandidate,
   onAddDocument
 }) => {
+  const [candidate, setCandidate] = useState<Candidate>(initialCandidate);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
@@ -153,6 +154,11 @@ export const CandidateCard: React.FC<Props> = ({
   const [selectedInterviewId, setSelectedInterviewId] = useState<string>('');
   const [selectedInterviewer, setSelectedInterviewer] = useState<string>('');
 
+  // 親コンポーネントからの変更をローカル状態に反映
+  useEffect(() => {
+    setCandidate(initialCandidate);
+  }, [initialCandidate]);
+
   // 必要なデータの初期化と安全な参照
   const jobPosting = jobPostings.find(job => job.id === candidate.jobPostingId);
   const emailHistory = candidate.emailHistory || [];
@@ -160,8 +166,29 @@ export const CandidateCard: React.FC<Props> = ({
   const evaluations = candidate.evaluations || [];
   const documents = candidate.documents || [];
 
+  const handleStatusChange = (id: string, status: Candidate['status']) => {
+    // ローカル状態を更新
+    setCandidate(prev => ({
+      ...prev,
+      status
+    }));
+    // 親コンポーネントに通知
+    onStatusChange(id, status);
+  };
+
   const handleEvaluationSubmit = (evaluation: Omit<Evaluation, 'id'>) => {
     onAddEvaluation(candidate.id, evaluation);
+    
+    // ローカル状態でインタビュー状態を更新
+    setCandidate(prev => ({
+      ...prev,
+      interviews: (prev.interviews || []).map(interview =>
+        interview.id === selectedInterviewId 
+          ? { ...interview, status: 'completed' } 
+          : interview
+      )
+    }));
+    
     onUpdateInterview(candidate.id, selectedInterviewId, { status: 'completed' });
     setShowEvaluationModal(false);
   };
@@ -173,8 +200,15 @@ export const CandidateCard: React.FC<Props> = ({
       sentDate: new Date().toISOString()
     };
 
+    // ローカル状態を更新
+    const updatedEmailHistory = [...emailHistory, newEmail];
+    setCandidate(prev => ({
+      ...prev,
+      emailHistory: updatedEmailHistory
+    }));
+
     onUpdateCandidate(candidate.id, {
-      emailHistory: [...emailHistory, newEmail]
+      emailHistory: updatedEmailHistory
     });
   };
 
@@ -185,6 +219,17 @@ export const CandidateCard: React.FC<Props> = ({
       setSelectedInterviewer(interview.interviewer);
       setShowEvaluationModal(true);
     }
+  };
+
+  const handleUpdateCandidate = (candidateId: string, updates: Partial<Candidate>) => {
+    // ローカル状態を更新
+    setCandidate(prev => ({
+      ...prev,
+      ...updates
+    }));
+    
+    // 親コンポーネントに通知
+    onUpdateCandidate(candidateId, updates);
   };
 
   const collapseItems = [
@@ -279,7 +324,7 @@ export const CandidateCard: React.FC<Props> = ({
           </Button>
           <Select
             value={candidate.status}
-            onChange={(value) => onStatusChange(candidate.id, value)}
+            onChange={(value) => handleStatusChange(candidate.id, value)}
             style={{ width: 120 }}
           >
             {Object.entries(statusLabels).map(([key, label]) => (
@@ -365,7 +410,7 @@ export const CandidateCard: React.FC<Props> = ({
       <EditCandidateModal
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
-        onSubmit={onUpdateCandidate}
+        onSubmit={handleUpdateCandidate}
         candidate={candidate}
         jobPostings={jobPostings}
       />

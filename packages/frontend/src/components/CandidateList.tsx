@@ -1,7 +1,7 @@
 import React from 'react';
 import { Table, Tag, Space, Typography, Button } from 'antd';
 import { UserOutlined, MailOutlined, EnvironmentOutlined } from '@ant-design/icons';
-import { Candidate } from '../types';
+import { Candidate, JobPosting } from '../types';
 
 const { Text } = Typography;
 
@@ -9,6 +9,7 @@ interface Props {
   candidates: Candidate[];
   jobPostings: JobPosting[];
   onSelectCandidate: (candidate: Candidate) => void;
+  onStatusChange: (id: string, status: Candidate['status']) => void;
   currentPage: number;
   pageSize: number;
   total: number;
@@ -39,6 +40,7 @@ export const CandidateList: React.FC<Props> = ({
   candidates,
   jobPostings,
   onSelectCandidate,
+  onStatusChange,
   currentPage,
   pageSize,
   total,
@@ -61,16 +63,13 @@ export const CandidateList: React.FC<Props> = ({
       ),
     },
     {
-      title: '応募求人',
+      title: '求人',
+      dataIndex: 'jobPostingId',
       key: 'jobPosting',
-      render: (record: Candidate) => {
-        const jobPosting = jobPostings?.find(job => job.id === record.jobPostingId) || record.jobPosting;
-        return (
-          <Text>
-            {jobPosting?.title || '-'}
-          </Text>
-        );
-      },
+      render: (jobPostingId: string, record: Candidate) => {
+        const jobPosting = jobPostings.find(jp => jp.id === jobPostingId);
+        return jobPosting ? jobPosting.title : '未設定';
+      }
     },
     {
       title: '役職',

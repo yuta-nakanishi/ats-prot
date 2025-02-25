@@ -20,6 +20,9 @@ import { EditCandidateModal } from './EditCandidateModal';
 import { DocumentUploadModal } from './DocumentUploadModal';
 import { EvaluationModal } from './EvaluationModal';
 import { EmailModal } from './EmailModal';
+import PermissionGuard from './permissions/PermissionGuard';
+import ResourcePermissionGuard from './permissions/ResourcePermissionGuard';
+import { PermissionAction, PermissionResource } from '../lib/types';
 
 const { Text, Title } = Typography;
 
@@ -115,19 +118,19 @@ const EvaluationSection: React.FC<{ evaluation: Evaluation }> = ({ evaluation })
       </Space>
       <Descriptions column={1} size="small">
         <Descriptions.Item label="技術力">
-          <Rate disabled defaultValue={evaluation.technicalSkills} />
+          <Rate disabled defaultValue={evaluation.criteria.technicalSkills} />
         </Descriptions.Item>
         <Descriptions.Item label="コミュニケーション">
-          <Rate disabled defaultValue={evaluation.communication} />
+          <Rate disabled defaultValue={evaluation.criteria.communication} />
         </Descriptions.Item>
         <Descriptions.Item label="問題解決力">
-          <Rate disabled defaultValue={evaluation.problemSolving} />
+          <Rate disabled defaultValue={evaluation.criteria.problemSolving} />
         </Descriptions.Item>
         <Descriptions.Item label="チームワーク">
-          <Rate disabled defaultValue={evaluation.teamwork} />
+          <Rate disabled defaultValue={evaluation.criteria.teamwork} />
         </Descriptions.Item>
         <Descriptions.Item label="文化適合性">
-          <Rate disabled defaultValue={evaluation.culture} />
+          <Rate disabled defaultValue={evaluation.criteria.culture} />
         </Descriptions.Item>
       </Descriptions>
       {evaluation.comments && (
@@ -138,7 +141,7 @@ const EvaluationSection: React.FC<{ evaluation: Evaluation }> = ({ evaluation })
 );
 
 export const CandidateDetail: React.FC<Props> = ({
-  candidate,
+  candidate: initialCandidate,
   jobPostings,
   onStatusChange,
   onAddInterview,
@@ -148,6 +151,7 @@ export const CandidateDetail: React.FC<Props> = ({
   onAddDocument,
   onBack
 }) => {
+  const [candidate, setCandidate] = useState<Candidate>(initialCandidate);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
@@ -156,15 +160,50 @@ export const CandidateDetail: React.FC<Props> = ({
   const [selectedInterviewId, setSelectedInterviewId] = useState<string>('');
   const [selectedInterviewer, setSelectedInterviewer] = useState<string>('');
 
-  const jobPosting = candidate.jobPosting || jobPostings.find(job => job.id === candidate.jobPostingId);
+  React.useEffect(() => {
+    setCandidate(initialCandidate);
+  }, [initialCandidate]);
+
+  const jobPosting = jobPostings.find(job => job.id === candidate.jobPostingId);
   const emailHistory = candidate.emailHistory || [];
   const interviews = candidate.interviews || [];
   const evaluations = candidate.evaluations || [];
   const documents = candidate.documents || [];
 
+  const handleStatusChange = (id: string, status: Candidate['status']) => {
+    setCandidate(prev => ({
+      ...prev,
+      status
+    }));
+    onStatusChange(id, status);
+  };
+
+  const handleAddInterview = (candidateId: string, interview: Omit<Interview, 'id' | 'status' | 'feedback'>) => {
+    onAddInterview(candidateId, interview);
+  };
+
+  const handleUpdateInterview = (candidateId: string, interviewId: string, updates: Partial<Interview>) => {
+    setCandidate(prev => ({
+      ...prev,
+      interviews: (prev.interviews || []).map(interview => 
+        interview.id === interviewId ? { ...interview, ...updates } : interview
+      )
+    }));
+    
+    onUpdateInterview(candidateId, interviewId, updates);
+  };
+
+  const handleAddEvaluation = (candidateId: string, evaluation: Omit<Evaluation, 'id'>) => {
+    onAddEvaluation(candidateId, evaluation);
+  };
+
+  const handleAddDocument = (candidateId: string, document: Omit<Document, 'id' | 'uploadDate'>) => {
+    onAddDocument(candidateId, document);
+  };
+
   const handleEvaluationSubmit = (evaluation: Omit<Evaluation, 'id'>) => {
-    onAddEvaluation(candidate.id, evaluation);
-    onUpdateInterview(candidate.id, selectedInterviewId, { status: 'completed' });
+    handleAddEvaluation(candidate.id, evaluation);
+    handleUpdateInterview(candidate.id, selectedInterviewId, { status: 'completed' });
     setShowEvaluationModal(false);
   };
 
@@ -175,8 +214,15 @@ export const CandidateDetail: React.FC<Props> = ({
       sentDate: new Date().toISOString()
     };
     
+    const updatedEmailHistory = [...emailHistory, newEmail];
+    
+    setCandidate(prev => ({
+      ...prev,
+      emailHistory: updatedEmailHistory
+    }));
+    
     onUpdateCandidate(candidate.id, {
-      emailHistory: [...emailHistory, newEmail]
+      emailHistory: updatedEmailHistory
     });
   };
 
@@ -187,6 +233,15 @@ export const CandidateDetail: React.FC<Props> = ({
       setSelectedInterviewer(interview.interviewer);
       setShowEvaluationModal(true);
     }
+  };
+
+  const handleUpdateCandidate = (candidateId: string, updates: Partial<Candidate>) => {
+    setCandidate(prev => ({
+      ...prev,
+      ...updates
+    }));
+    
+    onUpdateCandidate(candidateId, updates);
   };
 
   return (
@@ -204,25 +259,44 @@ export const CandidateDetail: React.FC<Props> = ({
         }
         extra={
           <Space>
-            <Button
-              icon={<SendOutlined />}
-              onClick={() => setShowEmailModal(true)}
+            <PermissionGuard
+              action={PermissionAction.CREATE}
+              resource={PermissionResource.EVALUATION}
             >
-              メール送信
-            </Button>
-            <Select
-              value={candidate.status}
-              onChange={(value) => onStatusChange(candidate.id, value)}
-              style={{ width: 120 }}
+              <Button
+                icon={<SendOutlined />}
+                onClick={() => setShowEmailModal(true)}
+              >
+                メール送信
+              </Button>
+            </PermissionGuard>
+            
+            <ResourcePermissionGuard
+              action={PermissionAction.UPDATE}
+              resourceType={PermissionResource.CANDIDATE}
+              resourceId={candidate.id}
             >
-              {Object.entries(statusLabels).map(([key, label]) => (
-                <Select.Option key={key} value={key}>{label}</Select.Option>
-              ))}
-            </Select>
-            <Button
-              icon={<EditOutlined />}
-              onClick={() => setShowEditModal(true)}
-            />
+              <Select
+                value={candidate.status}
+                onChange={(value) => handleStatusChange(candidate.id, value)}
+                style={{ width: 120 }}
+              >
+                {Object.entries(statusLabels).map(([key, label]) => (
+                  <Select.Option key={key} value={key}>{label}</Select.Option>
+                ))}
+              </Select>
+            </ResourcePermissionGuard>
+            
+            <ResourcePermissionGuard
+              action={PermissionAction.UPDATE}
+              resourceType={PermissionResource.CANDIDATE}
+              resourceId={candidate.id}
+            >
+              <Button
+                icon={<EditOutlined />}
+                onClick={() => setShowEditModal(true)}
+              />
+            </ResourcePermissionGuard>
           </Space>
         }
       >
@@ -289,7 +363,7 @@ export const CandidateDetail: React.FC<Props> = ({
                     <div>
                       <Text type="secondary">必須要件:</Text>
                       <ul className="list-disc list-inside mt-2">
-                        {jobPosting.requirements.map((req, index) => (
+                        {jobPosting.requirements.map((req: string, index: number) => (
                           <li key={index}>{req}</li>
                         ))}
                       </ul>
@@ -297,7 +371,7 @@ export const CandidateDetail: React.FC<Props> = ({
                     <div>
                       <Text type="secondary">歓迎スキル:</Text>
                       <div className="mt-2">
-                        {jobPosting.preferredSkills.map((skill) => (
+                        {jobPosting.preferredSkills.map((skill: string) => (
                           <Tag key={skill} className="mr-2 mb-2">{skill}</Tag>
                         ))}
                       </div>
@@ -359,27 +433,32 @@ export const CandidateDetail: React.FC<Props> = ({
             )}
           </Space>
 
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setShowInterviewModal(true)}
+          <PermissionGuard
+            action={PermissionAction.CREATE}
+            resource={PermissionResource.INTERVIEW}
           >
-            面接を追加
-          </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setShowInterviewModal(true)}
+            >
+              面接を追加
+            </Button>
+          </PermissionGuard>
         </Space>
       </Card>
 
       <AddInterviewModal
         isOpen={showInterviewModal}
         onClose={() => setShowInterviewModal(false)}
-        onSubmit={(interview) => onAddInterview(candidate.id, interview)}
+        onSubmit={(interview) => handleAddInterview(candidate.id, interview)}
         candidateName={candidate.name}
       />
 
       <EditCandidateModal
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
-        onSubmit={onUpdateCandidate}
+        onSubmit={handleUpdateCandidate}
         candidate={candidate}
         jobPostings={jobPostings}
       />
@@ -387,7 +466,7 @@ export const CandidateDetail: React.FC<Props> = ({
       <DocumentUploadModal
         isOpen={showDocumentModal}
         onClose={() => setShowDocumentModal(false)}
-        onSubmit={(document) => onAddDocument(candidate.id, document)}
+        onSubmit={(document) => handleAddDocument(candidate.id, document)}
       />
 
       <EvaluationModal

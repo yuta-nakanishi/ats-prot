@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, Typography, Divider, Button, Form, Input, message, Spin } from 'antd';
+import { Card, Typography, Divider, Button, Form, Input, message, Spin, Alert } from 'antd';
 import { useAuth } from '@/contexts/AuthContext';
 
 const { Title, Text } = Typography;
@@ -11,6 +11,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
   const { login } = useAuth();
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -18,11 +19,15 @@ export default function Login() {
 
   const onFinish = async (values: { email: string; password: string }) => {
     setLoading(true);
+    setLoginError(null); // エラーをリセット
     try {
       await login(values.email, values.password);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login failed:', error);
-      message.error('ログインに失敗しました。メールアドレスとパスワードを確認してください。');
+      const errorMessage = error.message || 'ログインに失敗しました。メールアドレスとパスワードを確認してください。';
+      // message.errorとともに状態変数にもセット
+      message.error(errorMessage);
+      setLoginError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -52,6 +57,19 @@ export default function Login() {
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <Title level={3}>採用管理システム</Title>
         </div>
+        
+        {loginError && (
+          <Alert
+            message="ログインエラー"
+            description={loginError}
+            type="error"
+            showIcon
+            style={{ marginBottom: 16 }}
+            closable
+            onClose={() => setLoginError(null)}
+          />
+        )}
+        
         <Form form={form} name="login" onFinish={onFinish} layout="vertical">
           <Form.Item name="email" label="メールアドレス" rules={[
             { required: true, message: 'メールアドレスを入力してください' },

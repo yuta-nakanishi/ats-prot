@@ -32,14 +32,6 @@ export const EmailModal: React.FC<Props> = ({
     }
   }, [isOpen, form]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      form.resetFields();
-      setSelectedTemplate(null);
-      setCustomVariables({});
-    }
-  }, [isOpen, form]);
-
   const handleTemplateSelect = (templateId: string) => {
     const template = initialEmailTemplates.find(t => t.id === templateId);
     if (template) {

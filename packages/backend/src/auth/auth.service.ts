@@ -85,4 +85,38 @@ export class AuthService {
       return null;
     }
   }
+
+  async getAllUsers(): Promise<User[]> {
+    try {
+      return await this.usersRepository.find({
+        relations: ['company', 'department', 'team']
+      });
+    } catch (error) {
+      this.logger.error(`ユーザー一覧取得エラー: ${error.message}`, error.stack);
+      throw new InternalServerErrorException(`ユーザー一覧の取得中に問題が発生しました: ${error.message}`);
+    }
+  }
+
+  async getUserById(id: string): Promise<User> {
+    try {
+      const user = await this.usersRepository.findOne({
+        where: { id },
+        relations: ['company', 'department', 'team']
+      });
+      
+      if (!user) {
+        throw new UnauthorizedException('ユーザーが見つかりません');
+      }
+      
+      return user;
+    } catch (error) {
+      this.logger.error(`ユーザー取得エラー: ${error.message}`, error.stack);
+      
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException(`ユーザーの取得中に問題が発生しました: ${error.message}`);
+    }
+  }
 }
