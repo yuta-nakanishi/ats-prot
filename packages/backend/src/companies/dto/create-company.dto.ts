@@ -1,35 +1,47 @@
-import { IsString, IsEnum, IsUrl, IsOptional, IsBoolean } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsEmail, IsEnum, IsUrl, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { CompanyPlanType } from '../entities/company.entity';
 
 export class CreateCompanyDto {
-  @ApiProperty({ example: '株式会社サンプル' })
+  @IsNotEmpty()
   @IsString()
+  @ApiProperty({ example: '株式会社サンプル' })
   name: string;
 
-  @ApiProperty({ example: 'IT', required: false })
   @IsOptional()
   @IsString()
+  @ApiProperty({ example: 'IT', required: false })
   industry?: string;
 
-  @ApiProperty({ example: '東京都渋谷区〇〇', required: false })
   @IsOptional()
   @IsString()
+  @ApiProperty({ example: '東京都渋谷区〇〇', required: false })
   address?: string;
 
-  @ApiProperty({ example: '03-1234-5678', required: false })
   @IsOptional()
   @IsString()
+  @ApiProperty({ example: '03-1234-5678', required: false })
   phoneNumber?: string;
 
-  @ApiProperty({ example: 'https://example.com', required: false })
   @IsOptional()
-  @IsUrl()
+  @IsString()
+  @ApiProperty({ example: 'https://example.com', required: false })
   websiteUrl?: string;
 
-  @ApiProperty({ enum: CompanyPlanType, default: CompanyPlanType.BASIC })
+  @IsOptional()
   @IsEnum(CompanyPlanType)
-  planType: CompanyPlanType;
+  @ApiProperty({ enum: CompanyPlanType, default: CompanyPlanType.BASIC })
+  planType?: CompanyPlanType;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ example: 'tenantId' })
+  tenantId?: string;
+
+  @IsOptional()
+  @IsEmail()
+  @ApiProperty({ example: 'admin@example.com' })
+  adminEmail?: string;
 
   @ApiProperty({ default: true })
   @IsOptional()

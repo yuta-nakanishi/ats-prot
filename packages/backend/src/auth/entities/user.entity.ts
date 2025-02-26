@@ -62,6 +62,9 @@ export class User {
   @Column({ default: false })
   isSuperAdmin: boolean;
 
+  @Column({ default: false })
+  isCompanyAdmin: boolean;
+
   @Column({ default: true })
   isActive: boolean;
 

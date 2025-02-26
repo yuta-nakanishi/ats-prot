@@ -16,6 +16,9 @@ export class Company {
   @Column()
   name: string;
 
+  @Column({ nullable: true, unique: true })
+  tenantId: string;
+
   @Column({ nullable: true })
   industry: string;
 

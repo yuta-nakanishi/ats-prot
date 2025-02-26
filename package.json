@@ -12,6 +12,7 @@
     "lint": "turbo run lint"
   },
   "devDependencies": {
+    "@types/uuid": "^10.0.0",
     "turbo": "^1.12.5"
   }
 }
