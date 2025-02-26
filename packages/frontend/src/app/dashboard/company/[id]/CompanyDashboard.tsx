@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { getTenantById } from '../../../../lib/api/tenant';
-import { getCurrentUser } from '../../../../lib/api/auth';
+import { getCurrentUser, logout } from '../../../../lib/api/auth';
 import { formatDate } from '../../../../lib/utils/format';
 import { Company, User } from '../../../../types';
 import { 
@@ -30,7 +31,8 @@ import {
   TeamOutlined, 
   SettingOutlined,
   FileTextOutlined,
-  RightOutlined
+  RightOutlined,
+  LogoutOutlined
 } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
@@ -41,6 +43,7 @@ interface CompanyDashboardProps {
 }
 
 export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
+  const router = useRouter();
   const [company, setCompany] = useState<Company | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -145,21 +148,42 @@ export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
     { id: '3', name: '鈴木一郎', position: 'バックエンドエンジニア', date: '2024-03-13', status: 'new' }
   ];
 
+  // ログアウト処理
+  const handleLogout = async () => {
+    try {
+      await logout();
+      localStorage.removeItem('token');
+      router.push('/login');
+    } catch (error) {
+      console.error('ログアウトエラー:', error);
+      setError('ログアウトに失敗しました。');
+    }
+  };
+
   return (
     <Content style={{ padding: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <Title level={2}>{company.name} ダッシュボード</Title>
         
-        {isCompanyAdmin && (
-          <Space>
-            <Link href={`/dashboard/company/${companyId}/settings`}>
-              <Button icon={<SettingOutlined />}>会社設定</Button>
-            </Link>
-            <Link href={`/dashboard/company/${companyId}/users`}>
-              <Button type="primary" icon={<UserOutlined />}>ユーザー管理</Button>
-            </Link>
-          </Space>
-        )}
+        <Space>
+          {isCompanyAdmin && (
+            <>
+              <Link href={`/dashboard/company/${companyId}/settings`}>
+                <Button icon={<SettingOutlined />}>会社設定</Button>
+              </Link>
+              <Link href={`/dashboard/company/${companyId}/users`}>
+                <Button type="primary" icon={<UserOutlined />}>ユーザー管理</Button>
+              </Link>
+            </>
+          )}
+          <Button 
+            icon={<LogoutOutlined />} 
+            onClick={handleLogout}
+            danger
+          >
+            ログアウト
+          </Button>
+        </Space>
       </div>
 
       {/* 統計カード */}
