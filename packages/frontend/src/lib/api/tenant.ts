@@ -35,17 +35,31 @@ export interface CreateTenantResponse {
 // APIベースURL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// トークンを安全に取得する関数
+const getToken = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('token');
+  }
+  return null;
+};
+
 // APIクライアント関数
 
 /**
  * すべてのテナントを取得する
  */
 export const getAllTenants = async (): Promise<Company[]> => {
+  const token = getToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}/companies?include=users`, {
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('token')}`
-    },
+    headers,
     credentials: 'include',
   });
 
@@ -62,11 +76,17 @@ export const getAllTenants = async (): Promise<Company[]> => {
  * IDでテナントを取得する
  */
 export const getTenantById = async (id: string): Promise<Company> => {
+  const token = getToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}/companies/${id}?include=users`, {
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('token')}`
-    },
+    headers,
     credentials: 'include',
   });
 
@@ -141,11 +161,17 @@ export const deleteTenant = async (id: string): Promise<void> => {
  * テナントのユーザー一覧を取得する
  */
 export const getTenantUsers = async (companyId: string): Promise<User[]> => {
+  const token = getToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}/companies/${companyId}/users`, {
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('token')}`
-    },
+    headers,
     credentials: 'include',
   });
 

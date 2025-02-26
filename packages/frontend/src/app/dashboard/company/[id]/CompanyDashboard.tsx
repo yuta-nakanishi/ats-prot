@@ -1,16 +1,94 @@
-import { use } from 'react';
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getTenantById } from '../../../../lib/api/tenant';
 import { getCurrentUser } from '../../../../lib/api/auth';
 import { formatDate } from '../../../../lib/utils/format';
+import { Company, User } from '../../../../types';
+import { 
+  Typography, 
+  Layout, 
+  Menu, 
+  Card, 
+  Row, 
+  Col, 
+  Statistic, 
+  Table, 
+  Tag, 
+  Button, 
+  Descriptions, 
+  Space, 
+  Spin, 
+  Alert,
+  Divider
+} from 'antd';
+import { 
+  UserOutlined, 
+  BranchesOutlined, 
+  CalendarOutlined, 
+  TeamOutlined, 
+  SettingOutlined,
+  FileTextOutlined,
+  RightOutlined
+} from '@ant-design/icons';
+
+const { Title, Text } = Typography;
+const { Content } = Layout;
 
 interface CompanyDashboardProps {
   companyId: string;
 }
 
 export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
-  const company = use(getTenantById(companyId));
-  const currentUser = use(getCurrentUser());
+  const [company, setCompany] = useState<Company | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [companyData, userData] = await Promise.all([
+          getTenantById(companyId),
+          getCurrentUser()
+        ]);
+        setCompany(companyData);
+        setCurrentUser(userData);
+      } catch (err) {
+        console.error('データ取得エラー:', err);
+        setError('データの読み込みに失敗しました。ログインしているか確認してください。');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [companyId]);
+
+  // ローディング中の表示
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Spin size="large" tip="読み込み中...">
+          <div className="p-12" />
+        </Spin>
+      </div>
+    );
+  }
+  
+  // エラー表示
+  if (error || !company || !currentUser) {
+    return (
+      <Alert
+        message="エラー"
+        description={error || 'データの読み込みに失敗しました。'}
+        type="error"
+        showIcon
+      />
+    );
+  }
   
   const isCompanyAdmin = currentUser.isCompanyAdmin;
   
@@ -21,184 +99,172 @@ export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
     interviewsThisWeek: 12,
   };
 
+  // テーブルの列定義
+  const columns = [
+    {
+      title: '名前',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: '応募職種',
+      dataIndex: 'position',
+      key: 'position',
+    },
+    {
+      title: '応募日',
+      dataIndex: 'date',
+      key: 'date',
+      render: (date: string) => formatDate(date),
+    },
+    {
+      title: 'ステータス',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => (
+        <Tag color={getStatusTagColor(status)}>
+          {getStatusLabel(status)}
+        </Tag>
+      ),
+    },
+    {
+      title: '',
+      key: 'action',
+      render: (_: any, record: any) => (
+        <Link href={`/dashboard/company/${companyId}/candidates/${record.id}`}>
+          <Button type="link" size="small">詳細</Button>
+        </Link>
+      ),
+    },
+  ];
+
+  // サンプルデータ
+  const candidatesData = [
+    { id: '1', name: '山田太郎', position: 'フロントエンドエンジニア', date: '2024-03-15', status: 'reviewing' },
+    { id: '2', name: '佐藤花子', position: 'UIデザイナー', date: '2024-03-14', status: 'interviewed' },
+    { id: '3', name: '鈴木一郎', position: 'バックエンドエンジニア', date: '2024-03-13', status: 'new' }
+  ];
+
   return (
-    <>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">{company.name} ダッシュボード</h1>
+    <Content style={{ padding: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <Title level={2}>{company.name} ダッシュボード</Title>
         
         {isCompanyAdmin && (
-          <div className="flex space-x-3">
-            <Link
-              href={`/dashboard/company/${companyId}/settings`}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-            >
-              会社設定
+          <Space>
+            <Link href={`/dashboard/company/${companyId}/settings`}>
+              <Button icon={<SettingOutlined />}>会社設定</Button>
             </Link>
-            <Link
-              href={`/dashboard/company/${companyId}/users`}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-            >
-              ユーザー管理
+            <Link href={`/dashboard/company/${companyId}/users`}>
+              <Button type="primary" icon={<UserOutlined />}>ユーザー管理</Button>
             </Link>
-          </div>
+          </Space>
         )}
       </div>
 
       {/* 統計カード */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">公開中の求人</h3>
-          <p className="text-3xl font-bold text-indigo-600">{stats.activeRecruitments}</p>
-          <div className="mt-4">
-            <Link
-              href={`/dashboard/company/${companyId}/jobs`}
-              className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-            >
-              求人を管理する →
-            </Link>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">候補者</h3>
-          <p className="text-3xl font-bold text-indigo-600">{stats.totalCandidates}</p>
-          <div className="mt-4">
-            <Link
-              href={`/dashboard/company/${companyId}/candidates`}
-              className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-            >
-              候補者を確認する →
-            </Link>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">今週の面接</h3>
-          <p className="text-3xl font-bold text-indigo-600">{stats.interviewsThisWeek}</p>
-          <div className="mt-4">
-            <Link
-              href={`/dashboard/company/${companyId}/interviews`}
-              className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-            >
-              面接予定を確認する →
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* 最近の応募者 */}
-      <div className="bg-white rounded-lg shadow-md mb-8">
-        <div className="border-b border-gray-200 px-6 py-4">
-          <h3 className="text-lg font-medium text-gray-900">最近の応募者</h3>
-        </div>
-        <div className="p-6">
-          {/* サンプルデータ表示 */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">名前</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">応募職種</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">応募日</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ステータス</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase"></th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {/* サンプルデータ */}
-                {[
-                  { id: '1', name: '山田太郎', position: 'フロントエンドエンジニア', date: '2024-03-15', status: 'reviewing' },
-                  { id: '2', name: '佐藤花子', position: 'UIデザイナー', date: '2024-03-14', status: 'interviewed' },
-                  { id: '3', name: '鈴木一郎', position: 'バックエンドエンジニア', date: '2024-03-13', status: 'new' }
-                ].map((candidate) => (
-                  <tr key={candidate.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">{candidate.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{candidate.position}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{formatDate(candidate.date)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(candidate.status)}`}>
-                        {getStatusLabel(candidate.status)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <Link
-                        href={`/dashboard/company/${companyId}/candidates/${candidate.id}`}
-                        className="text-indigo-600 hover:text-indigo-800"
-                      >
-                        詳細
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          <div className="mt-4 text-right">
-            <Link
-              href={`/dashboard/company/${companyId}/candidates`}
-              className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-            >
-              全ての応募者を見る →
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* 企業情報 */}
-      <div className="bg-white rounded-lg shadow-md">
-        <div className="border-b border-gray-200 px-6 py-4">
-          <h3 className="text-lg font-medium text-gray-900">企業情報</h3>
-        </div>
-        <div className="p-6">
-          <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
-            <div>
-              <dt className="text-sm font-medium text-gray-500">会社名</dt>
-              <dd className="mt-1 text-gray-900">{company.name}</dd>
-            </div>
-            
-            <div>
-              <dt className="text-sm font-medium text-gray-500">業種</dt>
-              <dd className="mt-1 text-gray-900">{company.industry || '未設定'}</dd>
-            </div>
-            
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Webサイト</dt>
-              <dd className="mt-1">
-                {company.website ? (
-                  <a 
-                    href={company.website} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-indigo-600 hover:text-indigo-800"
-                  >
-                    {company.website}
-                  </a>
-                ) : (
-                  <span className="text-gray-500">未設定</span>
-                )}
-              </dd>
-            </div>
-            
-            <div>
-              <dt className="text-sm font-medium text-gray-500">従業員数</dt>
-              <dd className="mt-1 text-gray-900">{company.employeeCount || '未設定'}</dd>
-            </div>
-          </dl>
-          
-          {isCompanyAdmin && (
-            <div className="mt-6 text-right">
-              <Link
-                href={`/dashboard/company/${companyId}/settings`}
-                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-              >
-                企業情報を編集する →
+      <Row gutter={[24, 24]} style={{ marginBottom: '24px' }}>
+        <Col xs={24} sm={8}>
+          <Card variant="borderless" hoverable>
+            <Statistic
+              title="公開中の求人"
+              value={stats.activeRecruitments}
+              prefix={<FileTextOutlined />}
+            />
+            <div style={{ marginTop: '16px' }}>
+              <Link href={`/dashboard/company/${companyId}/jobs`}>
+                <Button type="link" style={{ padding: 0 }}>
+                  求人を管理する <RightOutlined />
+                </Button>
               </Link>
             </div>
-          )}
-        </div>
-      </div>
-    </>
+          </Card>
+        </Col>
+        
+        <Col xs={24} sm={8}>
+          <Card variant="borderless" hoverable>
+            <Statistic
+              title="候補者"
+              value={stats.totalCandidates}
+              prefix={<TeamOutlined />}
+            />
+            <div style={{ marginTop: '16px' }}>
+              <Link href={`/dashboard/company/${companyId}/candidates`}>
+                <Button type="link" style={{ padding: 0 }}>
+                  候補者を確認する <RightOutlined />
+                </Button>
+              </Link>
+            </div>
+          </Card>
+        </Col>
+        
+        <Col xs={24} sm={8}>
+          <Card variant="borderless" hoverable>
+            <Statistic
+              title="今週の面接"
+              value={stats.interviewsThisWeek}
+              prefix={<CalendarOutlined />}
+            />
+            <div style={{ marginTop: '16px' }}>
+              <Link href={`/dashboard/company/${companyId}/interviews`}>
+                <Button type="link" style={{ padding: 0 }}>
+                  面接予定を確認する <RightOutlined />
+                </Button>
+              </Link>
+            </div>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 最近の応募者 */}
+      <Card
+        title="最近の応募者"
+        style={{ marginBottom: '24px' }}
+        extra={
+          <Link href={`/dashboard/company/${companyId}/candidates`}>
+            <Button type="link">
+              全ての応募者を見る <RightOutlined />
+            </Button>
+          </Link>
+        }
+      >
+        <Table
+          columns={columns}
+          dataSource={candidatesData}
+          rowKey="id"
+          pagination={false}
+        />
+      </Card>
+
+      {/* 企業情報 */}
+      <Card
+        title="企業情報"
+        extra={
+          isCompanyAdmin && (
+            <Link href={`/dashboard/company/${companyId}/settings`}>
+              <Button type="link">
+                企業情報を編集する <RightOutlined />
+              </Button>
+            </Link>
+          )
+        }
+      >
+        <Descriptions bordered column={{ xxl: 4, xl: 3, lg: 3, md: 2, sm: 1, xs: 1 }}>
+          <Descriptions.Item label="会社名">{company.name}</Descriptions.Item>
+          <Descriptions.Item label="業種">{company.industry || '未設定'}</Descriptions.Item>
+          <Descriptions.Item label="Webサイト">
+            {company.website ? (
+              <a href={company.website} target="_blank" rel="noopener noreferrer">
+                {company.website}
+              </a>
+            ) : (
+              '未設定'
+            )}
+          </Descriptions.Item>
+          <Descriptions.Item label="従業員数">{company.employeeCount || '未設定'}</Descriptions.Item>
+        </Descriptions>
+      </Card>
+    </Content>
   );
 }
 
@@ -214,14 +280,14 @@ function getStatusLabel(status: string): string {
   }
 }
 
-// ステータスに応じた色クラスを返す
-function getStatusColor(status: string): string {
+// ステータスに応じたタグの色を返す
+function getStatusTagColor(status: string): string {
   switch (status) {
-    case 'new': return 'bg-blue-100 text-blue-800';
-    case 'reviewing': return 'bg-yellow-100 text-yellow-800';
-    case 'interviewed': return 'bg-purple-100 text-purple-800';
-    case 'offered': return 'bg-green-100 text-green-800';
-    case 'rejected': return 'bg-red-100 text-red-800';
-    default: return 'bg-gray-100 text-gray-800';
+    case 'new': return 'blue';
+    case 'reviewing': return 'gold';
+    case 'interviewed': return 'purple';
+    case 'offered': return 'green';
+    case 'rejected': return 'red';
+    default: return 'default';
   }
 } 

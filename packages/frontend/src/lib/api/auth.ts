@@ -3,6 +3,14 @@ import { User, LoginResponse } from '../../types';
 // APIベースURL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// トークンを安全に取得する関数
+const getToken = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('token');
+  }
+  return null;
+};
+
 interface LoginCredentials {
   email: string;
   password: string;
@@ -72,7 +80,7 @@ export const logout = async (): Promise<void> => {
  */
 export const getCurrentUser = async (): Promise<User> => {
   // ローカルストレージからトークンを取得
-  const token = localStorage.getItem('token');
+  const token = getToken();
   
   if (!token) {
     throw new Error('認証トークンがありません');

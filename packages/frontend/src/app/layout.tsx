@@ -1,11 +1,15 @@
 import './globals.css';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { ApiProvider } from '@/contexts/ApiContext';
-import 'antd/dist/reset.css';
+import { Inter } from 'next/font/google';
+import { Metadata } from 'next';
+import { AntdRegistry } from '@ant-design/nextjs-registry';
+import { AuthProvider } from '../contexts/AuthContext';
+import { ApiProvider } from '../contexts/ApiContext';
 
-export const metadata = {
-  title: '採用管理システム',
-  description: '採用候補者や求人を管理するためのシステム',
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata: Metadata = {
+  title: 'ATS - 採用管理システム',
+  description: '効率的な採用管理のためのオールインワンシステム',
 };
 
 export default function RootLayout({
@@ -15,10 +19,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <body>
-        <ApiProvider>
-          <AuthProvider>{children}</AuthProvider>
-        </ApiProvider>
+      <body className={inter.className}>
+        <AntdRegistry>
+          <ApiProvider>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </ApiProvider>
+        </AntdRegistry>
       </body>
     </html>
   );
