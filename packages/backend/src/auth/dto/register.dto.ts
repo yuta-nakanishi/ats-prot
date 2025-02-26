@@ -31,6 +31,11 @@ export class RegisterDto {
   @IsBoolean()
   isCompanyAdmin?: boolean;
 
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  isSuperAdmin?: boolean;
+
   @ApiProperty({ required: false, enum: UserRole, default: UserRole.RECRUITER })
   @IsOptional()
   @IsString()

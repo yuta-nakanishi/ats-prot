@@ -19,6 +19,48 @@ export interface Candidate {
   emailHistory?: EmailMessage[];
 }
 
+// 企業（テナント）の型定義
+export interface Company {
+  id: string;
+  name: string;
+  tenantId: string;
+  description?: string;
+  industry?: string;
+  employeeCount?: number;
+  website?: string;
+  createdAt: string;
+  updatedAt: string;
+  users?: User[];
+}
+
+// ユーザー型定義
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  companyId?: string;
+  departmentId?: string;
+  teamId?: string;
+  jobTitle?: string;
+  phoneNumber?: string;
+  isSuperAdmin: boolean;
+  isCompanyAdmin: boolean;
+  isActive: boolean;
+  lastLoginAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ユーザーロール
+export enum UserRole {
+  COMPANY_ADMIN = 'company_admin',
+  HIRING_MANAGER = 'hiring_manager',
+  RECRUITER = 'recruiter',
+  INTERVIEWER = 'interviewer',
+  READONLY = 'readonly',
+}
+
 export interface Interview {
   id: string;
   type: 'initial' | 'technical' | 'cultural' | 'final';

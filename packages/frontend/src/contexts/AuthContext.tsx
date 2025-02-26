@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/api';
-import { parseCookies, setCookie } from 'nookies';
+import { parseCookies, setCookie, destroyCookie } from 'nookies';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -26,11 +26,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const cookies = parseCookies();
     const cookieToken = cookies.token;
     
+    console.log('AuthContext init - token from localStorage:', !!token);
+    console.log('AuthContext init - token from cookie:', !!cookieToken);
+    
     if (token && !cookieToken) {
       // ローカルストレージにはあるがクッキーにない場合、クッキーに設定
       setCookie(null, 'token', token, {
         maxAge: 30 * 24 * 60 * 60,
         path: '/',
+        sameSite: 'lax',
       });
     } else if (cookieToken && !token) {
       // クッキーにはあるがローカルストレージにない場合、ローカルストレージに設定
@@ -44,20 +48,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       const response = await authApi.login({ email, password });
-      localStorage.setItem('token', response.token);
+      console.log('ログイン成功:', !!response.token);
       
-      // クライアント側でもクッキーに保存(ミドルウェア用)
-      setCookie(null, 'token', response.token, {
-        maxAge: 30 * 24 * 60 * 60,
-        path: '/',
-      });
-      
-      setIsAuthenticated(true);
-      
-      // ダッシュボードへのリダイレクトを少し遅延させる
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 100);
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+        
+        // クライアント側でもクッキーに保存(ミドルウェア用)
+        setCookie(null, 'token', response.token, {
+          maxAge: 30 * 24 * 60 * 60,
+          path: '/',
+          sameSite: 'lax',
+        });
+        
+        setIsAuthenticated(true);
+        
+        // ダッシュボードへのリダイレクトを少し遅延させる
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 100);
+      } else {
+        console.error('ログイン成功したがトークンがありません');
+        throw new Error('認証トークンの取得に失敗しました');
+      }
     } catch (error: any) {
       console.error('Login failed:', error);
       // エラーステータスコードに基づいたエラーメッセージを設定
@@ -78,20 +90,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (email: string, password: string, name: string) => {
     try {
       const response = await authApi.register({ email, password, name });
-      localStorage.setItem('token', response.token);
-      
-      // クライアント側でもクッキーに保存(ミドルウェア用)
-      setCookie(null, 'token', response.token, {
-        maxAge: 30 * 24 * 60 * 60,
-        path: '/',
-      });
-      
-      setIsAuthenticated(true);
-      
-      // ダッシュボードへのリダイレクトを少し遅延させる
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 100);
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+        
+        // クライアント側でもクッキーに保存(ミドルウェア用)
+        setCookie(null, 'token', response.token, {
+          maxAge: 30 * 24 * 60 * 60,
+          path: '/',
+          sameSite: 'lax',
+        });
+        
+        setIsAuthenticated(true);
+        
+        // ダッシュボードへのリダイレクトを少し遅延させる
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 100);
+      } else {
+        throw new Error('認証トークンの取得に失敗しました');
+      }
     } catch (error: any) {
       console.error('Registration failed:', error);
       // エラーステータスコードに基づいたエラーメッセージを設定
@@ -110,27 +127,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    console.log('ログアウト処理開始');
     authApi.logout()
       .then(() => {
-        localStorage.removeItem('token');
-        // クッキーからも削除
-        setCookie(null, 'token', '', {
-          maxAge: -1,
-          path: '/',
-        });
-        setIsAuthenticated(false);
-        router.push('/login');
+        console.log('サーバーサイドログアウト成功');
       })
       .catch(error => {
-        console.error('Logout error:', error);
-        // エラーが発生しても、ローカルの認証状態はクリアする
+        console.error('Logout API error:', error);
+      })
+      .finally(() => {
+        // ローカルのトークンを削除
         localStorage.removeItem('token');
+        
         // クッキーからも削除
-        setCookie(null, 'token', '', {
-          maxAge: -1,
-          path: '/',
-        });
+        destroyCookie(null, 'token', { path: '/' });
+        
+        // Cookieを期限切れにする方法でも削除
+        document.cookie = 'token=; Max-Age=-99999999; path=/;';
+        
         setIsAuthenticated(false);
+        console.log('ログアウト完了、ログイン画面へリダイレクト');
         router.push('/login');
       });
   };

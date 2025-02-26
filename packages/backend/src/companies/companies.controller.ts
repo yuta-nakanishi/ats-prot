@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { CompaniesService } from './companies.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
@@ -12,14 +12,56 @@ export class CompaniesController {
 
   @Get()
   @ApiOperation({ summary: '企業一覧を取得' })
-  findAll() {
-    return this.companiesService.findAll();
+  @ApiQuery({ name: 'include', required: false, description: '含める関連データ（例: users）' })
+  async findAll(@Query('include') include?: string) {
+    // includeクエリパラメータに応じて関連データを含める
+    const relations = [];
+    if (include) {
+      const includes = include.split(',');
+      if (includes.includes('users')) {
+        relations.push('users');
+      }
+    }
+    
+    // 企業一覧を取得
+    const companies = await this.companiesService.findAll(relations);
+    
+    // ユーザー数情報を追加
+    const enhancedCompanies = companies.map(company => {
+      const usersCount = company.users?.length || 0;
+      return {
+        ...company,
+        usersCount
+      };
+    });
+    
+    return enhancedCompanies;
   }
 
   @Get(':id')
   @ApiOperation({ summary: '企業詳細を取得' })
-  findOne(@Param('id') id: string) {
-    return this.companiesService.findOne(id);
+  @ApiQuery({ name: 'include', required: false, description: '含める関連データ（例: users）' })
+  async findOne(@Param('id') id: string, @Query('include') include?: string) {
+    // includeクエリパラメータに応じて関連データを含める
+    const relations = [];
+    if (include) {
+      const includes = include.split(',');
+      if (includes.includes('users')) {
+        relations.push('users');
+      }
+    }
+    
+    // 企業詳細を取得
+    const company = await this.companiesService.findOne(id, relations);
+    
+    // ユーザー数情報を追加
+    const usersCount = company.users?.length || 0;
+    const enhancedCompany = {
+      ...company,
+      usersCount
+    };
+    
+    return enhancedCompany;
   }
 
   @Post()

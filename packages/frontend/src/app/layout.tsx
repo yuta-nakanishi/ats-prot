@@ -1,6 +1,7 @@
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ApiProvider } from '@/contexts/ApiContext';
+import 'antd/dist/reset.css';
 
 export const metadata = {
   title: '採用管理システム',

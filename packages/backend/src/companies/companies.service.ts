@@ -24,14 +24,16 @@ export class CompaniesService {
     return this.companiesRepository.save(company);
   }
 
-  async findAll(): Promise<Company[]> {
-    return this.companiesRepository.find();
+  async findAll(relations: string[] = []): Promise<Company[]> {
+    return this.companiesRepository.find({
+      relations: relations,
+    });
   }
 
-  async findOne(id: string): Promise<Company> {
+  async findOne(id: string, relations: string[] = ['users']): Promise<Company> {
     const company = await this.companiesRepository.findOne({
       where: { id },
-      relations: ['users'],
+      relations: relations,
     });
     
     if (!company) {

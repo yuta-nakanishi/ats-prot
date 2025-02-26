@@ -8,7 +8,7 @@ export class JwtAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const token = this.extractTokenFromHeader(request);
+    const token = this.extractTokenFromHeader(request) || this.extractTokenFromCookie(request);
     
     if (!token) {
       throw new UnauthorizedException('認証トークンが提供されていません');
@@ -29,5 +29,12 @@ export class JwtAuthGuard implements CanActivate {
   private extractTokenFromHeader(request: any): string | undefined {
     const [type, token] = request.headers.authorization?.split(' ') ?? [];
     return type === 'Bearer' ? token : undefined;
+  }
+
+  private extractTokenFromCookie(request: any): string | undefined {
+    if (request.cookies && request.cookies.token) {
+      return request.cookies.token;
+    }
+    return undefined;
   }
 } 

@@ -8,6 +8,9 @@ import { Evaluation } from './evaluations/entities/evaluation.entity';
 import { EntityManager } from 'typeorm';
 import { DataSource } from 'typeorm';
 import { PermissionsService } from './permissions/permissions.service';
+import { Company, CompanyPlanType } from './companies/entities/company.entity';
+import { User, UserRole } from './auth/entities/user.entity';
+import * as bcrypt from 'bcryptjs';
 
 async function clearDatabase(manager: EntityManager) {
   try {
@@ -16,6 +19,7 @@ async function clearDatabase(manager: EntityManager) {
     await manager.query('DELETE FROM interview');
     await manager.query('DELETE FROM candidate');
     await manager.query('DELETE FROM job_posting');
+    await manager.query('DELETE FROM company');
     await manager.query('PRAGMA foreign_keys = ON');
   } catch (error) {
     console.error('Error clearing database:', error);
@@ -31,6 +35,8 @@ async function seed() {
   const candidateRepo = app.get(getRepositoryToken(Candidate));
   const interviewRepo = app.get(getRepositoryToken(Interview));
   const evaluationRepo = app.get(getRepositoryToken(Evaluation));
+  const companyRepo = app.get(getRepositoryToken(Company));
+  const userRepo = app.get(getRepositoryToken(User));
   const permissionsService = app.get(PermissionsService);
 
   try {
@@ -42,6 +48,111 @@ async function seed() {
     await dataSource.transaction(async manager => {
       // データベースをクリア
       await clearDatabase(manager);
+
+      // テナント（企業）データのシード
+      console.log('🏢 テナントデータを作成中...');
+      
+      const companiesToCreate = [
+        {
+          name: '株式会社テクノソリューション',
+          tenantId: 'technosol',
+          industry: 'IT',
+          address: '東京都渋谷区神宮前5-52-2',
+          phoneNumber: '03-1234-5678',
+          websiteUrl: 'https://technosol.example.com',
+          planType: CompanyPlanType.PREMIUM,
+          isActive: true,
+        },
+        {
+          name: 'グローバル商事株式会社',
+          tenantId: 'global-trading',
+          industry: '商社',
+          address: '大阪府大阪市北区梅田3-1-3',
+          phoneNumber: '06-2345-6789',
+          websiteUrl: 'https://global-trading.example.com',
+          planType: CompanyPlanType.ENTERPRISE,
+          isActive: true,
+        },
+        {
+          name: '未来工業株式会社',
+          tenantId: 'mirai-kogyo',
+          industry: '製造業',
+          address: '愛知県名古屋市中区栄2-8-12',
+          phoneNumber: '052-3456-7890',
+          websiteUrl: 'https://mirai-kogyo.example.com',
+          planType: CompanyPlanType.BASIC,
+          isActive: false,
+        },
+        {
+          name: '山田建設株式会社',
+          tenantId: 'yamada-kensetsu',
+          industry: '建設',
+          address: '福岡県福岡市博多区博多駅前4-2-1',
+          phoneNumber: '092-4567-8901',
+          websiteUrl: 'https://yamada-kensetsu.example.com',
+          planType: CompanyPlanType.BASIC,
+          isActive: true,
+        },
+        {
+          name: 'メディカルケア株式会社',
+          tenantId: 'medical-care',
+          industry: '医療',
+          address: '東京都新宿区西新宿2-6-1',
+          phoneNumber: '03-5678-9012',
+          websiteUrl: 'https://medical-care.example.com',
+          planType: CompanyPlanType.PREMIUM,
+          isActive: true,
+        }
+      ];
+      
+      // テナントデータを保存
+      const companies = await Promise.all(
+        companiesToCreate.map(company => companyRepo.save(company))
+      );
+      
+      console.log(`✅ ${companies.length}件のテナントデータを作成しました`);
+      
+      // テナント管理者の作成
+      console.log('👤 テナント管理者ユーザーを作成中...');
+      
+      const salt = await bcrypt.genSalt();
+      const hashedPassword = await bcrypt.hash('password123', salt);
+      
+      const adminUsers = [
+        {
+          email: 'admin@technosol.example.com',
+          name: '鈴木 一郎',
+          password: hashedPassword,
+          role: UserRole.COMPANY_ADMIN,
+          company: companies[0],
+          isCompanyAdmin: true,
+          isActive: true,
+          isSuperAdmin: false,
+        },
+        {
+          email: 'admin@global-trading.example.com',
+          name: '田中 花子',
+          password: hashedPassword,
+          role: UserRole.COMPANY_ADMIN,
+          company: companies[1],
+          isCompanyAdmin: true,
+          isActive: true,
+          isSuperAdmin: false,
+        },
+        {
+          email: 'admin@medical-care.example.com',
+          name: '佐藤 健太',
+          password: hashedPassword,
+          role: UserRole.COMPANY_ADMIN,
+          company: companies[4],
+          isCompanyAdmin: true,
+          isActive: true,
+          isSuperAdmin: false,
+        }
+      ];
+      
+      await Promise.all(adminUsers.map(user => userRepo.save(user)));
+      console.log(`✅ ${adminUsers.length}件のテナント管理者ユーザーを作成しました`);
 
   // 求人データ
   const jobPostings = await Promise.all([
