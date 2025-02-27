@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { CompaniesModule } from './companies/companies.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { UsersModule } from './users/users.module';
+import { JobAssignmentsModule } from './job-assignments/job-assignments.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { UsersModule } from './users/users.module';
     CompaniesModule,
     PermissionsModule,
     UsersModule,
+    JobAssignmentsModule,
   ],
 })
 export class AppModule {}

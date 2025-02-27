@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Typography, Tabs, Card, Button, Divider, Modal } from 'antd';
 import { permissionsApi } from '../../lib/api';
-import { Permission, CustomRole, PermissionAction, PermissionResource } from '../../lib/types';
+import { Permission, CustomRole } from '../../lib/types';
 import PermissionsList from '../../components/permissions/PermissionsList';
 import CustomRolesList from '../../components/permissions/CustomRolesList';
 import CustomRoleForm from '../../components/permissions/CustomRoleForm';

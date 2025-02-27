@@ -1,7 +1,8 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
 import { Department } from '../../companies/entities/department.entity';
 import { Team } from '../../companies/entities/team.entity';
+import { JobAssignment } from '../../job-assignments/entities/job-assignment.entity';
 
 export enum UserRole {
   COMPANY_ADMIN = 'company_admin',
@@ -76,4 +77,7 @@ export class User {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(() => JobAssignment, assignment => assignment.user)
+  jobAssignments: JobAssignment[];
 }

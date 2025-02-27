@@ -10,16 +10,24 @@ import { DataSource } from 'typeorm';
 import { PermissionsService } from './permissions/permissions.service';
 import { Company, CompanyPlanType } from './companies/entities/company.entity';
 import { User, UserRole } from './auth/entities/user.entity';
+import { JobAssignment } from './job-assignments/entities/job-assignment.entity';
+import { AssignmentRole } from './job-assignments/entities/job-assignment.entity';
 import * as bcrypt from 'bcryptjs';
 
 async function clearDatabase(manager: EntityManager) {
   try {
     await manager.query('PRAGMA foreign_keys = OFF');
+    
+    // 削除順序を依存関係に合わせて変更
+    // まず依存しているテーブルから削除
     await manager.query('DELETE FROM evaluation');
     await manager.query('DELETE FROM interview');
+    await manager.query('DELETE FROM job_assignment');
     await manager.query('DELETE FROM candidate');
     await manager.query('DELETE FROM job_posting');
+    await manager.query('DELETE FROM user');
     await manager.query('DELETE FROM company');
+    
     await manager.query('PRAGMA foreign_keys = ON');
   } catch (error) {
     console.error('Error clearing database:', error);
@@ -154,7 +162,7 @@ async function seed() {
       await Promise.all(adminUsers.map(user => userRepo.save(user)));
       console.log(`✅ ${adminUsers.length}件のテナント管理者ユーザーを作成しました`);
 
-      // 求人データ
+      // 求人データの生成
       console.log('💼 求人データを作成中...');
       
       const jobPostingsData = [
@@ -253,22 +261,24 @@ async function seed() {
         }
       ];
       
-      // 最初の会社に紐づけて求人データを保存
-      const companyId = companies[0].id;
+      // 求人データを保存
       const jobPostings = await Promise.all(
-        jobPostingsData.map(jobData => {
+        jobPostingsData.map((jobData, index) => {
+          // 明示的にcompanyIdを設定
+          const company = companies[index % companies.length];
           return jobPostingRepo.save({
             ...jobData,
-            companyId
+            company: company,
+            companyId: company.id
           });
         })
       );
       
       console.log(`✅ ${jobPostings.length}件の求人データを作成しました`);
 
-      // 候補者データの追加
-      console.log('👤 候補者データを作成中...');
-
+      // 候補者データの生成（各会社に紐づける）
+      console.log('👨‍💼 候補者データを作成中...');
+      
       const candidatesToCreate = [
         {
           name: '山田 太郎',
@@ -290,115 +300,122 @@ async function seed() {
           `,
           notes: '前職ではECサイトのフロントエンド開発を担当。チームリーダーとしての経験もあり。',
           urls: {
-            website: 'https://yamada-portfolio.example.com',
-            linkedin: 'https://linkedin.com/in/taro-yamada',
-            github: 'https://github.com/taroyamada'
+            linkedin: 'https://linkedin.com/in/taroyamada',
+            github: 'https://github.com/yamada-taro',
           },
-          rating: 4,
-          jobId: jobPostings[0].id // 最初の求人に紐づける
+          company: companies[0], // 株式会社テクノソリューション
+          appliedAt: new Date('2024-03-15'),
+          jobId: '', // 後でjobPostingsと関連付ける
         },
         {
           name: '佐藤 花子',
           email: 'sato.hanako@example.com',
-          phone: '080-9876-5432',
-          position: 'バックエンドエンジニア',
+          phone: '080-2345-6789',
+          position: 'UIデザイナー',
           status: 'interview',
           experience: 3,
-          skills: ['Java', 'Spring Boot', 'MySQL'],
+          skills: ['Figma', 'Adobe XD', 'HTML/CSS'],
           source: 'indeed',
-          location: '大阪',
-          expectedSalary: '600万円',
-          currentCompany: '株式会社システムデザイン',
+          location: '東京',
+          expectedSalary: '550万円',
+          currentCompany: 'デザインスタジオB',
           availableFrom: '2ヶ月後',
-          birthDate: '1992-08-20',
-          education: `
-- 大阪大学 理学部 情報科学科 卒業 (2016年)
-          `,
-          notes: '基幹システムの開発経験あり。マイクロサービスアーキテクチャに興味がある。',
+          birthDate: '1992-10-08',
+          education: '多摩美術大学 デザイン学科 卒業 (2015年)',
+          notes: 'UI/UXデザインに強み。ユーザー調査経験あり。',
           urls: {
-            linkedin: 'https://linkedin.com/in/hanako-sato',
-            github: 'https://github.com/hanakosato'
+            portfolio: 'https://hanakodesign.com',
           },
-          rating: 3,
-          jobId: jobPostings[1].id // 2番目の求人に紐づける
+          company: companies[0], // 株式会社テクノソリューション
+          appliedAt: new Date('2024-03-14'),
+          jobId: '', // 後でjobPostingsと関連付ける
         },
         {
           name: '鈴木 一郎',
           email: 'suzuki.ichiro@example.com',
-          phone: '070-1111-2222',
-          position: 'UIデザイナー',
-          status: 'technical',
+          phone: '070-3456-7890',
+          position: 'バックエンドエンジニア',
+          status: 'new',
           experience: 7,
-          skills: ['Figma', 'Adobe XD', 'UI/UX', 'HTML/CSS'],
-          source: 'referral',
-          location: '東京',
-          expectedSalary: '650万円',
-          currentCompany: '株式会社クリエイティブラボ',
-          availableFrom: '即日',
-          birthDate: '1988-12-05',
-          education: `
-- 多摩美術大学 デザイン学科 卒業 (2010年)
-          `,
-          notes: 'ECサイトやSaaSプロダクトのUIデザイン経験が豊富。ユーザーテスト経験あり。',
+          skills: ['Java', 'Spring', 'MySQL', 'AWS'],
+          source: 'linkedin',
+          location: '大阪',
+          expectedSalary: '800万円',
+          currentCompany: '株式会社テクノソリューションズ',
+          availableFrom: 'すぐに可能',
+          birthDate: '1987-06-22',
+          education: '京都大学 情報学科 卒業 (2010年)',
+          notes: 'エンタープライズシステムの開発経験豊富。チームリード経験あり。',
           urls: {
-            website: 'https://suzuki-design.example.com',
-            linkedin: 'https://linkedin.com/in/ichiro-suzuki'
+            github: 'https://github.com/ichiro-suzuki',
+            linkedin: 'https://linkedin.com/in/ichirosuzuki',
           },
-          rating: 5,
-          jobId: jobPostings[2].id // 3番目の求人に紐づける
+          company: companies[1], // グローバル商事株式会社
+          appliedAt: new Date('2024-04-01'),
+          jobId: '', // 後でjobPostingsと関連付ける
         },
         {
-          name: '田中 直樹',
-          email: 'tanaka.naoki@example.com',
-          phone: '090-3333-4444',
-          position: 'プロジェクトマネージャー',
-          status: 'offer',
-          experience: 10,
-          skills: ['Agile', 'Scrum', 'JIRA', 'Confluence'],
-          source: 'linkedin',
+          name: '田中 健太',
+          email: 'tanaka.kenta@example.com',
+          phone: '090-4567-8901',
+          position: 'データサイエンティスト',
+          status: 'technical',
+          experience: 4,
+          skills: ['Python', 'R', 'TensorFlow', 'SQL'],
+          source: 'company_website',
           location: '東京',
-          expectedSalary: '900万円',
-          currentCompany: '株式会社ビジネスソリューションズ',
-          availableFrom: '3ヶ月後',
-          birthDate: '1984-03-10',
-          education: `
-- 早稲田大学 商学部 卒業 (2008年)
-- PMP認定 (2015年)
-          `,
-          notes: '大規模Webサービスの開発プロジェクトをリード。チーム規模最大15名。',
+          expectedSalary: '650万円',
+          currentCompany: 'データアナリティクス株式会社',
+          availableFrom: '応相談',
+          birthDate: '1991-12-03',
+          education: '東京工業大学 情報理工学研究科 修了 (2016年)',
+          notes: '機械学習モデルの構築と実装経験あり。ビジネス課題解決志向。',
           urls: {
-            linkedin: 'https://linkedin.com/in/naoki-tanaka'
+            github: 'https://github.com/kenta-tanaka',
           },
-          rating: 4,
-          jobId: jobPostings[3].id // 4番目の求人に紐づける
+          company: companies[0], // 株式会社テクノソリューション
+          appliedAt: new Date('2024-03-25'),
+          jobId: '', // 後でjobPostingsと関連付ける
         },
         {
           name: '伊藤 美咲',
           email: 'ito.misaki@example.com',
-          phone: '080-5555-6666',
-          position: 'カスタマーサポート',
-          status: 'rejected',
-          experience: 2,
-          skills: ['カスタマーサービス', 'Zendesk', 'Excel'],
-          source: 'indeed',
-          location: '大阪',
-          expectedSalary: '400万円',
-          currentCompany: '株式会社サポートセンター',
-          availableFrom: '即日',
-          birthDate: '1995-07-23',
-          education: `
-- 関西大学 文学部 卒業 (2018年)
-          `,
-          notes: 'コールセンターでの勤務経験あり。英語対応可能（TOEIC 780点）。',
-          urls: {},
-          rating: 2,
-          jobId: jobPostings[4].id // 5番目の求人に紐づける
+          phone: '080-5678-9012',
+          position: 'プロジェクトマネージャー',
+          status: 'offer',
+          experience: 6,
+          skills: ['Agile', 'Scrum', 'JIRA', 'プロジェクト管理'],
+          source: 'referral',
+          location: '東京',
+          expectedSalary: '750万円',
+          currentCompany: 'ITソリューションズ株式会社',
+          availableFrom: '3ヶ月後',
+          birthDate: '1989-08-17',
+          education: '早稲田大学 経営学部 卒業 (2012年)',
+          notes: '複数の大規模プロジェクトをリード。顧客折衝能力に優れる。',
+          company: companies[0], // 株式会社テクノソリューション
+          appliedAt: new Date('2024-03-10'),
+          jobId: '', // 後でjobPostingsと関連付ける
         }
       ];
-
-      // 候補者データを保存
+      
+      // 候補者データを作成する前に、求人IDを割り当てる
+      candidatesToCreate[0].jobId = jobPostings[0].id; // 山田太郎 -> シニアフロントエンドエンジニア
+      candidatesToCreate[1].jobId = jobPostings[3].id; // 佐藤花子 -> UI/UXデザイナー
+      candidatesToCreate[2].jobId = jobPostings[1].id; // 鈴木一郎 -> バックエンドエンジニア
+      candidatesToCreate[3].jobId = jobPostings[5].id; // 田中健太 -> データサイエンティスト
+      candidatesToCreate[4].jobId = jobPostings[0].id; // 伊藤美咲 -> シニアフロントエンドエンジニア
+      
       const candidates = await Promise.all(
-        candidatesToCreate.map(candidateData => candidateRepo.save(candidateData))
+        candidatesToCreate.map(candidateData => {
+          // 該当する求人を見つける
+          const jobPosting = jobPostings.find(job => job.id === candidateData.jobId);
+          return candidateRepo.save({
+            ...candidateData,
+            // jobPostingを設定して関連付け
+            jobPosting: jobPosting
+          });
+        })
       );
 
       console.log(`✅ ${candidates.length}件の候補者データを作成しました`);
@@ -409,6 +426,24 @@ async function seed() {
       // 各候補者に対して面接データを生成
       const interviews = [];
       
+      // 今日の日付を取得
+      const today = new Date();
+      
+      // 今週と来週の日付を計算
+      const thisWeekDates = [];
+      for (let i = 0; i < 7; i++) {
+        const date = new Date();
+        date.setDate(today.getDate() + i);
+        thisWeekDates.push(date);
+      }
+      
+      const nextWeekDates = [];
+      for (let i = 7; i < 14; i++) {
+        const date = new Date();
+        date.setDate(today.getDate() + i);
+        nextWeekDates.push(date);
+      }
+      
       for (const candidate of candidates) {
         // 候補者のステータスに応じて面接データを生成
         if (candidate.status === 'screening') {
@@ -417,63 +452,195 @@ async function seed() {
             await interviewRepo.save({
               candidate,
               type: 'initial',
-              date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 1週間後
+              date: thisWeekDates[1], // 明日
               time: '14:00', // 時間フィールドに値を設定
               location: 'online',
               status: 'scheduled',
               interviewer: '鈴木 一郎, 田中 花子' // 面接官を文字列として設定
             })
           );
-        } else if (candidate.status === 'interview' || candidate.status === 'technical' || candidate.status === 'offer') {
+        } else if (candidate.status === 'interview') {
           // 一次面接が完了している
           interviews.push(
             await interviewRepo.save({
               candidate,
               type: 'initial',
-              date: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // 2週間前
-              time: '10:30', // 時間フィールドに値を設定
+              date: new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000), // 5日前
+              time: '15:00',
               location: 'online',
               status: 'completed',
-              interviewer: '鈴木 一郎, 田中 花子', // 面接官を文字列として設定
-              feedback: '基本的なスキルとコミュニケーション能力は良好。次のステップに進めてよい。'
+              interviewer: '鈴木 一郎',
+              feedback: '基本的なスキルは高い。コミュニケーション能力も良好。次の面接に進めるべき。'
             })
           );
           
-          if (candidate.status === 'technical' || candidate.status === 'offer') {
-            // 二次面接（技術面接）が完了している
-            interviews.push(
-              await interviewRepo.save({
-                candidate,
-                type: 'technical',
-                date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 1週間前
-                time: '15:00', // 時間フィールドに値を設定
-                location: 'office',
-                status: 'completed',
-                interviewer: '佐藤 健太, 高橋 誠', // 面接官を文字列として設定
-                feedback: '技術的な知識は十分。実務経験も豊富で即戦力として期待できる。'
-              })
-            );
-            
-            if (candidate.status === 'offer') {
-              // 最終面接が完了している
-              interviews.push(
-                await interviewRepo.save({
-                  candidate,
-                  type: 'final',
-                  date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3日前
-                  time: '11:00', // 時間フィールドに値を設定
-                  location: 'office',
-                  status: 'completed',
-                  interviewer: '山本 社長, 鈴木 副社長', // 面接官を文字列として設定
-                  feedback: '人柄も良く、会社の文化にもフィットする。オファーを出すことを推奨する。'
-                })
-              );
-            }
-          }
+          // 次の面接が予定されている
+          interviews.push(
+            await interviewRepo.save({
+              candidate,
+              type: 'technical',
+              date: thisWeekDates[3], // 3日後
+              time: '10:00',
+              location: 'office',
+              status: 'scheduled',
+              interviewer: '高橋 修, 佐々木 健太'
+            })
+          );
+        } else if (candidate.status === 'technical') {
+          // 技術面接が完了
+          interviews.push(
+            await interviewRepo.save({
+              candidate,
+              type: 'initial',
+              date: new Date(today.getTime() - 10 * 24 * 60 * 60 * 1000), // 10日前
+              time: '14:00',
+              location: 'online',
+              status: 'completed',
+              interviewer: '鈴木 一郎',
+              feedback: '基本的なスキルは問題なし。次のステップに進めるべき。'
+            })
+          );
+          
+          interviews.push(
+            await interviewRepo.save({
+              candidate,
+              type: 'technical',
+              date: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000), // 3日前
+              time: '11:00',
+              location: 'office',
+              status: 'completed',
+              interviewer: '高橋 修, 佐々木 健太',
+              feedback: '技術的なスキルは高いレベル。特にデータモデリングが優れている。最終面接に進めるべき。'
+            })
+          );
+          
+          // 最終面接が予定されている
+          interviews.push(
+            await interviewRepo.save({
+              candidate,
+              type: 'final',
+              date: thisWeekDates[4], // 4日後
+              time: '16:00',
+              location: 'office',
+              status: 'scheduled',
+              interviewer: '渡辺 社長, 鈴木 一郎'
+            })
+          );
+        } else if (candidate.status === 'offer') {
+          // すべての面接が完了している
+          interviews.push(
+            await interviewRepo.save({
+              candidate,
+              type: 'initial',
+              date: new Date(today.getTime() - 15 * 24 * 60 * 60 * 1000), // 15日前
+              time: '10:00',
+              location: 'online',
+              status: 'completed',
+              interviewer: '鈴木 一郎',
+              feedback: '経験豊富で知識も十分。次のステップに進めるべき。'
+            })
+          );
+          
+          interviews.push(
+            await interviewRepo.save({
+              candidate,
+              type: 'technical',
+              date: new Date(today.getTime() - 10 * 24 * 60 * 60 * 1000), // 10日前
+              time: '14:00',
+              location: 'office',
+              status: 'completed',
+              interviewer: '高橋 修, 佐々木 健太',
+              feedback: 'プロジェクト管理スキルは非常に高い。チームリーダーとしての経験も豊富。'
+            })
+          );
+          
+          interviews.push(
+            await interviewRepo.save({
+              candidate,
+              type: 'final',
+              date: new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000), // 5日前
+              time: '16:00',
+              location: 'office',
+              status: 'completed',
+              interviewer: '渡辺 社長, 鈴木 一郎',
+              feedback: '非常に優秀な候補者。是非採用したい。'
+            })
+          );
+        } else if (candidate.status === 'new') {
+          // これから最初の面接を行う
+          interviews.push(
+            await interviewRepo.save({
+              candidate,
+              type: 'initial',
+              date: thisWeekDates[2], // 2日後
+              time: '11:00',
+              location: 'online',
+              status: 'scheduled',
+              interviewer: '田中 花子'
+            })
+          );
         }
       }
       
       console.log(`✅ ${interviews.length}件の面接データを作成しました`);
+      
+      // 評価データの生成
+      console.log('💯 評価データを作成中...');
+      
+      const evaluations = [];
+      
+      // 面接が完了している候補者に対して評価データを生成
+      for (const interview of interviews) {
+        if (interview.status === 'completed') {
+          const evaluation = {
+            candidate: interview.candidate,
+            evaluator: interview.interviewer.split(',')[0].trim(), // 最初の面接官
+            technicalSkills: Math.floor(Math.random() * 3) + 3, // 3-5のスコア
+            communication: Math.floor(Math.random() * 3) + 3, // 3-5のスコア
+            problemSolving: Math.floor(Math.random() * 3) + 3, // 3-5のスコア
+            teamwork: Math.floor(Math.random() * 3) + 3, // 3-5のスコア
+            culture: Math.floor(Math.random() * 3) + 3, // 3-5のスコア
+            comments: interview.feedback || 'スキルと経験は十分。チームにマッチするでしょう。',
+            date: new Date(interview.date.getTime() + 2 * 60 * 60 * 1000), // 面接の2時間後
+          };
+          
+          evaluations.push(await evaluationRepo.save(evaluation));
+        }
+      }
+      
+      console.log(`✅ ${evaluations.length}件の評価データを作成しました`);
+      
+      // JobAssignmentデータの作成
+      console.log('👥 求人担当者データを作成中...');
+      
+      // サービスのインポートと取得
+      const jobAssignmentRepo = app.get(getRepositoryToken(JobAssignment));
+      
+      const jobAssignments = [];
+      
+      // 各求人に担当者を割り当てる
+      for (const jobPosting of jobPostings) {
+        // 会社の管理者ユーザーを見つける
+        const userList = await userRepo.find({ where: { companyId: jobPosting.companyId } });
+        if (userList.length > 0) {
+          const adminUser = userList[0]; // 会社に属する最初のユーザー
+          jobAssignments.push(
+            await jobAssignmentRepo.save({
+              userId: adminUser.id,
+              user: adminUser,
+              jobPostingId: jobPosting.id,
+              jobPosting: jobPosting,
+              role: AssignmentRole.PRIMARY,
+              notificationsEnabled: true,
+              notes: '主担当者として全体を管理',
+              createdAt: new Date(),
+              updatedAt: new Date()
+            })
+          );
+        }
+      }
+      
+      console.log(`✅ ${jobAssignments.length}件の求人担当者データを作成しました`);
       
       // スーパー管理者ユーザーの作成
       console.log('👤 スーパー管理者ユーザーを作成中...');

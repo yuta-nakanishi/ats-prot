@@ -126,6 +126,28 @@ export interface JobPosting {
   };
   postedDate: string;
   closingDate?: string;
+  assignments?: JobAssignment[];
+}
+
+// 求人担当者の役割
+export enum AssignmentRole {
+  PRIMARY = 'primary',      // 主担当
+  SECONDARY = 'secondary',  // 副担当
+  VIEWER = 'viewer',        // 閲覧のみ
+}
+
+// 求人担当者の割り当て
+export interface JobAssignment {
+  id: string;
+  userId: string;
+  jobPostingId: string;
+  role: AssignmentRole;
+  notificationsEnabled: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  user?: User;
+  jobPosting?: JobPosting;
 }
 
 export interface EmailMessage {

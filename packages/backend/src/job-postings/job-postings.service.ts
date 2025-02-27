@@ -12,13 +12,18 @@ export class JobPostingsService {
     private jobPostingsRepository: Repository<JobPosting>,
   ) {}
 
-  async findAll(status?: string): Promise<JobPosting[]> {
+  async findAll(status?: string, companyId?: string): Promise<JobPosting[]> {
+    const queryBuilder = this.jobPostingsRepository.createQueryBuilder('jobPosting');
+    
     if (status) {
-      return this.jobPostingsRepository.find({
-        where: { status: status as JobPosting['status'] }
-      });
+      queryBuilder.andWhere('jobPosting.status = :status', { status });
     }
-    return this.jobPostingsRepository.find();
+    
+    if (companyId) {
+      queryBuilder.andWhere('jobPosting.companyId = :companyId', { companyId });
+    }
+    
+    return queryBuilder.getMany();
   }
 
   async findOne(id: string): Promise<JobPosting> {

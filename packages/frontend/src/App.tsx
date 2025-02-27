@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Typography, Space, Tabs, Button, Input, Select, Spin } from 'antd';
 import { TeamOutlined, PlusOutlined, SearchOutlined, FilterOutlined, LogoutOutlined } from '@ant-design/icons';
-import { CandidateCard } from './components/CandidateCard';
 import { JobPostingList } from './components/JobPostingList';
 import { AddCandidateModal } from './components/AddCandidateModal';
 import { JobPostingModal } from './components/JobPostingModal';
@@ -12,8 +11,6 @@ import { Dashboard } from './components/reporting/Dashboard';
 import { CandidatesTab } from './components/CandidatesTab';
 import { Candidate, Document, Interview, Evaluation, JobPosting, EmailTemplate, initialEmailTemplates } from './types';
 import { jobPostingsApi, candidatesApi } from './lib/api';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useAuth } from './contexts/AuthContext';
 import axios from 'axios';
 import PermissionGuard from './components/permissions/PermissionGuard';
@@ -27,7 +24,6 @@ interface AppProps {
 }
 
 function App({ initialTab = 'dashboard' }: AppProps) {
-  const router = useRouter();
   const { logout } = useAuth();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [jobPostings, setJobPostings] = useState<JobPosting[]>([]);
@@ -222,31 +218,7 @@ function App({ initialTab = 'dashboard' }: AppProps) {
     setEmailTemplates(emailTemplates.filter(template => template.id !== templateId));
   };
 
-  const filteredCandidates = candidates.filter(candidate => {
-    const matchesSearch = 
-      candidate.name.toLowerCase().includes(candidateSearch.toLowerCase()) ||
-      candidate.role.toLowerCase().includes(candidateSearch.toLowerCase()) ||
-      candidate.skills.some(skill => skill.toLowerCase().includes(candidateSearch.toLowerCase())) ||
-      candidate.location.toLowerCase().includes(candidateSearch.toLowerCase());
 
-    const matchesStatus = candidateStatusFilter === 'all' || candidate.status === candidateStatusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  const filteredJobPostings = jobPostings.filter(jobPosting => {
-    const matchesSearch = 
-      (jobPosting.title || '').toLowerCase().includes(jobSearch.toLowerCase()) ||
-      (jobPosting.department || '').toLowerCase().includes(jobSearch.toLowerCase()) ||
-      (jobPosting.description || '').toLowerCase().includes(jobSearch.toLowerCase()) ||
-      (jobPosting.location || '').toLowerCase().includes(jobSearch.toLowerCase()) ||
-      (jobPosting.requirements || []).some(req => req.toLowerCase().includes(jobSearch.toLowerCase())) ||
-      (jobPosting.preferredSkills || []).some(skill => skill.toLowerCase().includes(jobSearch.toLowerCase()));
-
-    const matchesStatus = jobStatusFilter === 'all' || jobPosting.status === jobStatusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
 
   const tabItems = [
     {

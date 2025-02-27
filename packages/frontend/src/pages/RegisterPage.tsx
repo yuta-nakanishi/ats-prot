@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, Typography, Divider, Button, Spin } from 'antd';
 import { RegisterForm } from '@/components/auth/RegisterForm';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,8 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 const { Title, Text } = Typography;
 
 export const RegisterPage: React.FC = () => {
-  const { register } = useAuth();
-  const router = useRouter();
+  useAuth();
   const [mounted, setMounted] = useState(false);
 
   // クライアントサイドでのみマウントするためのフラグ

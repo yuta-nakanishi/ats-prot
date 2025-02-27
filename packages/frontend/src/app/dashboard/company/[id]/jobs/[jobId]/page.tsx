@@ -33,6 +33,11 @@ import {
   ExclamationCircleOutlined,
   UserOutlined
 } from '@ant-design/icons';
+import JobAssignmentSection from '@/components/jobs/JobAssignmentSection';
+import { getCompanyUsers } from '@/lib/api/users';
+import { getJobPostingById, deleteJobPosting, duplicateJobPosting } from '@/lib/api/job-postings';
+import { User, JobPosting } from '@/types';
+import { differenceInDays } from 'date-fns';
 
 const { Title, Text, Paragraph } = Typography;
 const { Content } = Layout;
@@ -88,90 +93,8 @@ const STATUS_CONFIG = {
   archived: { color: 'error', text: 'アーカイブ' }
 };
 
-// 仮の求人詳細取得API
-const getJobDetail = async (jobId: string) => {
-  return new Promise<any>((resolve) => {
-    // 実際のAPIコールをシミュレート
-    setTimeout(() => {
-      resolve({
-        id: jobId,
-        companyId: 'company-123',
-        title: 'フロントエンドエンジニア',
-        department: 'development',
-        type: 'full_time',
-        experienceLevel: 'mid',
-        location: 'tokyo',
-        isRemote: true,
-        salaryRange: {
-          min: 400,
-          max: 700
-        },
-        description: `
-# 職務内容
-- モダンなフロントエンド技術を使用したWebアプリケーションの開発
-- UIコンポーネントの設計と実装
-- バックエンドAPIとの連携
-- テストコードの作成とメンテナンス
-- ドキュメンテーションの作成と更新
-
-当社のプロダクトは多くのユーザーに使われる重要なサービスです。ユーザー体験を向上させるための取り組みに、ぜひご参加ください。
-        `,
-        requirements: `
-## 必須スキル・経験
-- React, Vue, Angularなどのモダンフレームワークの使用経験（3年以上）
-- HTML, CSS, JavaScriptの深い理解
-- REST APIを使用した開発経験
-- GitHubを使った開発フロー経験
-
-## 歓迎スキル・経験
-- TypeScriptの使用経験
-- テスト駆動開発の経験
-- CI/CDパイプラインの構築経験
-- デザインシステムの構築・運用経験
-        `,
-        benefits: `
-- フレックスタイム制
-- リモートワーク可能
-- 書籍購入支援
-- カンファレンス参加費用補助
-- 社内勉強会あり
-- 各種社会保険完備
-        `,
-        selectionProcess: `
-1. 書類選考
-2. コーディングテスト
-3. 一次面接（技術面接）
-4. 二次面接（カルチャーフィット）
-5. 最終面接（役員面接）
-        `,
-        status: 'published',
-        applicationDeadline: '2024-09-30T23:59:59Z',
-        applicantsCount: 8,
-        createdAt: '2024-03-15T10:00:00Z',
-        updatedAt: '2024-03-20T14:30:00Z',
-        // モック用の応募者データ
-        applicants: [
-          { id: '1', name: '山田太郎', avatar: null, appliedAt: '2024-03-20T13:00:00Z', status: 'reviewing' },
-          { id: '2', name: '佐藤花子', avatar: null, appliedAt: '2024-03-19T10:15:00Z', status: 'interviewing' },
-          { id: '3', name: '鈴木一郎', avatar: null, appliedAt: '2024-03-18T09:30:00Z', status: 'rejected' }
-        ]
-      });
-    }, 1000);
-  });
-};
-
-// 仮の求人削除API
-const deleteJob = async (jobId: string) => {
-  return new Promise<void>((resolve) => {
-    // 実際のAPIコールをシミュレート
-    setTimeout(() => {
-      resolve();
-    }, 1000);
-  });
-};
-
 // 日付フォーマット関数
-const formatDate = (dateString: string) => {
+const formatDate = (dateString: string | undefined) => {
   if (!dateString) return 'なし';
   
   const date = new Date(dateString);
@@ -244,17 +167,31 @@ const applicantStatusConfig = {
   withdrawn: { color: 'default', text: '辞退' }
 };
 
+// APIから取得した求人データを表示用に拡張する型
+interface ExtendedJobPosting extends JobPosting {
+  applicantsCount?: number;
+  experienceLevel?: string;
+  isRemote?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  benefits?: string;
+  selectionProcess?: string;
+  applicants?: any[];
+}
+
 export default function JobDetailPage() {
   const router = useRouter();
   const params = useParams() || {};
   const companyId = typeof params.id === 'string' ? params.id : '';
   const jobId = typeof params.jobId === 'string' ? params.jobId : '';
   
-  const [job, setJob] = useState<any>(null);
+  const [job, setJob] = useState<ExtendedJobPosting | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('details');
   const [messageApi, contextHolder] = message.useMessage();
+  const [companyUsers, setCompanyUsers] = useState<User[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   
   useEffect(() => {
     const fetchJobDetail = async () => {
@@ -262,12 +199,14 @@ export default function JobDetailPage() {
       
       setLoading(true);
       try {
+        console.log('求人詳細取得開始: jobId =', jobId);
         // APIを呼び出して求人詳細を取得
-        const data = await getJobDetail(jobId);
+        const data = await getJobPostingById(jobId);
+        console.log('求人詳細取得成功:', data);
         setJob(data);
       } catch (err) {
         console.error('求人詳細の取得に失敗しました', err);
-        setError('求人情報の取得に失敗しました。再度お試しください。');
+        setError(`求人ID ${jobId} が見つかりません`);
       } finally {
         setLoading(false);
       }
@@ -276,13 +215,42 @@ export default function JobDetailPage() {
     fetchJobDetail();
   }, [jobId]);
   
+  // 企業のユーザー一覧を取得
+  useEffect(() => {
+    const fetchCompanyUsers = async () => {
+      if (!companyId) return;
+      
+      setLoadingUsers(true);
+      try {
+        const users = await getCompanyUsers(companyId);
+        setCompanyUsers(users);
+      } catch (err) {
+        console.error('企業ユーザーの取得に失敗しました', err);
+        // エラーメッセージは表示しない（担当者セクションのみに影響するため）
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+    
+    fetchCompanyUsers();
+  }, [companyId]);
+  
   const handleEditJob = () => {
     router.push(`/dashboard/company/${companyId}/jobs/${jobId}/edit`);
   };
   
-  const handleDuplicateJob = () => {
-    // 求人複製機能（実際の実装ではAPIを呼び出す）
-    messageApi.info('求人の複製機能は開発中です');
+  const handleDuplicateJob = async () => {
+    try {
+      await duplicateJobPosting(jobId);
+      messageApi.success('求人を複製しました');
+      // 一覧ページに戻る
+      setTimeout(() => {
+        router.push(`/dashboard/company/${companyId}/jobs`);
+      }, 1500);
+    } catch (err) {
+      console.error('求人の複製に失敗しました', err);
+      messageApi.error('求人の複製に失敗しました');
+    }
   };
   
   const handleDeleteJob = () => {
@@ -296,7 +264,7 @@ export default function JobDetailPage() {
       onOk: async () => {
         try {
           // APIを呼び出して求人を削除
-          await deleteJob(jobId);
+          await deleteJobPosting(jobId);
           messageApi.success('求人を削除しました');
           
           // 求人一覧に戻る
@@ -317,6 +285,34 @@ export default function JobDetailPage() {
   
   const handleViewApplicant = (applicantId: string) => {
     router.push(`/dashboard/company/${companyId}/candidates/${applicantId}`);
+  };
+  
+  // 求人情報が更新された後の処理
+  const handleJobUpdate = () => {
+    // 必要に応じて求人情報を再取得
+    const fetchJobDetail = async () => {
+      try {
+        const data = await getJobPostingById(jobId);
+        setJob(data);
+      } catch (err) {
+        console.error('求人詳細の再取得に失敗しました', err);
+      }
+    };
+    
+    fetchJobDetail();
+  };
+  
+  // 公開日数を計算
+  const getPublishedDays = (job: ExtendedJobPosting) => {
+    if (job.status !== 'open' || !job.postedDate) return 0;
+    return differenceInDays(new Date(), new Date(job.postedDate));
+  };
+  
+  // 残り日数を計算
+  const getRemainingDays = (job: ExtendedJobPosting) => {
+    if (!job.closingDate) return null;
+    const days = differenceInDays(new Date(job.closingDate), new Date());
+    return days > 0 ? days : 0;
   };
   
   if (!companyId || !jobId) {
@@ -366,8 +362,8 @@ export default function JobDetailPage() {
             </Button>
           </Link>
           <Title level={2} style={{ margin: 0 }}>{job.title}</Title>
-          <Tag color={STATUS_CONFIG[job.status]?.color || 'default'}>
-            {STATUS_CONFIG[job.status]?.text || job.status}
+          <Tag color={STATUS_CONFIG[job.status as keyof typeof STATUS_CONFIG]?.color || 'default'}>
+            {STATUS_CONFIG[job.status as keyof typeof STATUS_CONFIG]?.text || job.status}
           </Tag>
         </Space>
         
@@ -409,19 +405,19 @@ export default function JobDetailPage() {
               bordered
               column={{ xxl: 4, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }}
             >
-              <Descriptions.Item label="部署">{DEPARTMENT_LABELS[job.department] || job.department}</Descriptions.Item>
-              <Descriptions.Item label="雇用形態">{EMPLOYMENT_TYPE_LABELS[job.type] || job.type}</Descriptions.Item>
-              <Descriptions.Item label="必要経験">{EXPERIENCE_LEVEL_LABELS[job.experienceLevel] || job.experienceLevel}</Descriptions.Item>
+              <Descriptions.Item label="部署">{DEPARTMENT_LABELS[job.department as keyof typeof DEPARTMENT_LABELS] || job.department}</Descriptions.Item>
+              <Descriptions.Item label="雇用形態">{EMPLOYMENT_TYPE_LABELS[job.employmentType as keyof typeof EMPLOYMENT_TYPE_LABELS] || job.employmentType}</Descriptions.Item>
+              <Descriptions.Item label="必要経験">{job.experienceLevel ? (EXPERIENCE_LEVEL_LABELS[job.experienceLevel as keyof typeof EXPERIENCE_LEVEL_LABELS] || job.experienceLevel) : '指定なし'}</Descriptions.Item>
               <Descriptions.Item label="勤務地">
-                {LOCATION_LABELS[job.location] || job.location}
+                {LOCATION_LABELS[job.location as keyof typeof LOCATION_LABELS] || job.location}
                 {job.isRemote && <Tag color="blue" style={{ marginLeft: 8 }}>リモート可</Tag>}
               </Descriptions.Item>
               <Descriptions.Item label="給与範囲">
-                {job.salaryRange ? `${job.salaryRange.min}～${job.salaryRange.max}万円/年` : '応相談'}
+                {job.salaryRange ? `${job.salaryRange.min / 10000}～${job.salaryRange.max / 10000}万円/年` : '応相談'}
               </Descriptions.Item>
-              <Descriptions.Item label="応募締切日">{formatDate(job.applicationDeadline)}</Descriptions.Item>
-              <Descriptions.Item label="作成日">{formatDate(job.createdAt)}</Descriptions.Item>
-              <Descriptions.Item label="最終更新日">{formatDate(job.updatedAt)}</Descriptions.Item>
+              <Descriptions.Item label="応募締切日">{formatDate(job.closingDate)}</Descriptions.Item>
+              <Descriptions.Item label="作成日">{job.createdAt ? formatDate(job.createdAt) : 'なし'}</Descriptions.Item>
+              <Descriptions.Item label="最終更新日">{job.updatedAt ? formatDate(job.updatedAt) : 'なし'}</Descriptions.Item>
             </Descriptions>
             
             <Divider />
@@ -441,7 +437,7 @@ export default function JobDetailPage() {
                 <Card style={{ width: '200px' }}>
                   <Statistic
                     title="公開日数"
-                    value={job.status === 'published' ? 30 : 0} // 仮の値
+                    value={getPublishedDays(job)}
                     suffix="日"
                     prefix={<CalendarOutlined />}
                   />
@@ -450,13 +446,23 @@ export default function JobDetailPage() {
                 <Card style={{ width: '200px' }}>
                   <Statistic
                     title="残り日数"
-                    value={job.applicationDeadline ? 15 : 0} // 仮の値
-                    suffix="日"
+                    value={getRemainingDays(job) || '無期限'}
+                    suffix={getRemainingDays(job) ? "日" : ""}
                     prefix={<ClockCircleOutlined />}
                   />
                 </Card>
               </div>
             </div>
+            
+            <Divider />
+            
+            {/* 担当者 */}
+            <JobAssignmentSection 
+              jobPostingId={jobId}
+              users={companyUsers}
+              canEdit={true}
+              afterUpdate={handleJobUpdate}
+            />
             
             <Divider />
             
@@ -471,17 +477,40 @@ export default function JobDetailPage() {
             {/* 応募要件 */}
             <div style={{ marginBottom: '24px' }}>
               <Title level={4}>応募要件</Title>
-              {renderFormattedText(job.requirements)}
+              {Array.isArray(job.requirements) ? (
+                <ul>
+                  {job.requirements.map((req, index) => (
+                    <li key={index}>{req}</li>
+                  ))}
+                </ul>
+              ) : (
+                renderFormattedText(job.requirements as string)
+              )}
             </div>
             
             <Divider />
+            
+            {/* 歓迎スキル */}
+            {job.preferredSkills && job.preferredSkills.length > 0 && (
+              <>
+                <div style={{ marginBottom: '24px' }}>
+                  <Title level={4}>歓迎スキル</Title>
+                  <ul>
+                    {job.preferredSkills.map((skill, index) => (
+                      <li key={index}>{skill}</li>
+                    ))}
+                  </ul>
+                </div>
+                <Divider />
+              </>
+            )}
             
             {/* 福利厚生 */}
             {job.benefits && (
               <>
                 <div style={{ marginBottom: '24px' }}>
                   <Title level={4}>福利厚生・特典</Title>
-                  {renderFormattedText(job.benefits)}
+                  {renderFormattedText(job.benefits as string)}
                 </div>
                 <Divider />
               </>
@@ -491,7 +520,7 @@ export default function JobDetailPage() {
             {job.selectionProcess && (
               <div style={{ marginBottom: '24px' }}>
                 <Title level={4}>選考プロセス</Title>
-                {renderFormattedText(job.selectionProcess)}
+                {renderFormattedText(job.selectionProcess as string)}
               </div>
             )}
           </div>
@@ -521,8 +550,8 @@ export default function JobDetailPage() {
                       description={
                         <Space>
                           <span>応募日: {formatDate(applicant.appliedAt)}</span>
-                          <Tag color={applicantStatusConfig[applicant.status]?.color || 'default'}>
-                            {applicantStatusConfig[applicant.status]?.text || applicant.status}
+                          <Tag color={applicantStatusConfig[applicant.status as keyof typeof applicantStatusConfig]?.color || 'default'}>
+                            {applicantStatusConfig[applicant.status as keyof typeof applicantStatusConfig]?.text || applicant.status}
                           </Tag>
                         </Space>
                       }

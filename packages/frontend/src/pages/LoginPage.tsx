@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, Form, Input, Button, Typography, message, Divider, Spin } from 'antd';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -9,7 +8,6 @@ export const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { login } = useAuth();
-  const router = useRouter();
   const [form] = Form.useForm();
 
   // クライアントサイドでのみマウントするためのフラグ

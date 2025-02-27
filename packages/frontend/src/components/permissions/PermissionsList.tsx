@@ -3,9 +3,7 @@ import {
   Table, 
   Tag,
   Spin,
-  Alert,
-  Space
-} from 'antd';
+  Alert} from 'antd';
 import { Permission, PermissionAction, PermissionResource } from '../../lib/types';
 
 interface PermissionsListProps {

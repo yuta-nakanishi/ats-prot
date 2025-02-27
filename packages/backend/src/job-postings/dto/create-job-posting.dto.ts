@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsArray, IsInt, IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsEnum, IsArray, IsInt, IsOptional, IsDateString, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { JobPostingStatus, EmploymentType } from '../entities/job-posting.entity';
 
@@ -49,4 +49,8 @@ export class CreateJobPostingDto {
   @IsOptional()
   @IsDateString()
   closingDate?: string;
+
+  @ApiProperty({ example: '12345678-1234-1234-1234-123456789012' })
+  @IsUUID()
+  companyId: string;
 }

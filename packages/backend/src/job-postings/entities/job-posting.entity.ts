@@ -1,5 +1,7 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { Candidate } from '../../candidates/entities/candidate.entity';
+import { JobAssignment } from '../../job-assignments/entities/job-assignment.entity';
+import { Company } from '../../companies/entities/company.entity';
 
 export type JobPostingStatus = 'open' | 'closed' | 'draft';
 export type EmploymentType = 'full-time' | 'part-time' | 'contract';
@@ -46,6 +48,13 @@ export class JobPosting {
   @Column('int')
   salaryRangeMax: number;
 
+  @Column()
+  companyId: string;
+
+  @ManyToOne(() => Company, company => company.id)
+  @JoinColumn({ name: 'companyId' })
+  company: Company;
+
   @CreateDateColumn()
   postedDate: Date;
 
@@ -54,4 +63,7 @@ export class JobPosting {
 
   @OneToMany(() => Candidate, candidate => candidate.jobPosting)
   candidates: Candidate[];
+
+  @OneToMany(() => JobAssignment, assignment => assignment.jobPosting)
+  assignments: JobAssignment[];
 }

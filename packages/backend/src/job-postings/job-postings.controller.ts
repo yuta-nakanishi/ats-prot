@@ -11,8 +11,8 @@ export class JobPostingsController {
 
   @Get()
   @ApiOperation({ summary: '求人一覧を取得' })
-  findAll(@Query('status') status?: string) {
-    return this.jobPostingsService.findAll(status);
+  findAll(@Query('status') status?: string, @Query('companyId') companyId?: string) {
+    return this.jobPostingsService.findAll(status, companyId);
   }
 
   @Get(':id')

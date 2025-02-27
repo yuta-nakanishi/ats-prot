@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getTenantById } from '../../../../lib/api/tenant';
 import { getCurrentUser } from '../../../../lib/api/auth';
+import { getJobPostings } from '../../../../lib/api/job-postings';
+import { getCandidates } from '../../../../lib/api/candidates';
 import { formatDate } from '../../../../lib/utils/format';
-import { Company, User } from '../../../../types';
+import { Company, User, JobPosting, Candidate } from '../../../../types';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { 
   Typography, 
@@ -50,17 +52,48 @@ export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [jobPostings, setJobPostings] = useState<JobPosting[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [interviewsThisWeek, setInterviewsThisWeek] = useState<number>(0);
   
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [companyData, userData] = await Promise.all([
+        const [companyData, userData, jobsData, candidatesData] = await Promise.all([
           getTenantById(companyId),
-          getCurrentUser()
+          getCurrentUser(),
+          getJobPostings(companyId),
+          getCandidates(companyId)
         ]);
         setCompany(companyData);
         setCurrentUser(userData);
+        setJobPostings(jobsData);
+        setCandidates(candidatesData);
+        
+        // 今週の面接数をカウント（仮実装：実際にはAPIから取得するか、候補者データから計算）
+        const oneWeekFromNow = new Date();
+        oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7);
+        const today = new Date();
+        
+        // 候補者データから面接データを抽出して数をカウント（実際のデータ構造に合わせて調整が必要）
+        let interviewCount = 0;
+        candidatesData.forEach(candidate => {
+          if (candidate.interviews) {
+            candidate.interviews.forEach(interview => {
+              const interviewDate = new Date(interview.date);
+              if (
+                interviewDate >= today && 
+                interviewDate <= oneWeekFromNow && 
+                interview.status === 'scheduled'
+              ) {
+                interviewCount++;
+              }
+            });
+          }
+        });
+        
+        setInterviewsThisWeek(interviewCount);
       } catch (err) {
         console.error('データ取得エラー:', err);
         setError('データの読み込みに失敗しました。ログインしているか確認してください。');
@@ -97,11 +130,11 @@ export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
   
   const isCompanyAdmin = currentUser.isCompanyAdmin;
   
-  // 統計データ（実際はAPIから取得）
+  // 実際のデータから統計情報を計算
   const stats = {
-    activeRecruitments: 5,
-    totalCandidates: 38,
-    interviewsThisWeek: 12,
+    activeRecruitments: jobPostings.filter(job => job.status === 'open').length,
+    totalCandidates: candidates.length,
+    interviewsThisWeek: interviewsThisWeek,
   };
 
   // テーブルの列定義
@@ -115,11 +148,15 @@ export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
       title: '応募職種',
       dataIndex: 'position',
       key: 'position',
+      render: (_: string, record: Candidate) => {
+        const jobTitle = record.jobPosting?.title || record.position || '未指定';
+        return jobTitle;
+      }
     },
     {
       title: '応募日',
-      dataIndex: 'date',
-      key: 'date',
+      dataIndex: 'appliedAt',
+      key: 'appliedAt',
       render: (date: string) => formatDate(date),
     },
     {
@@ -135,7 +172,7 @@ export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
     {
       title: '',
       key: 'action',
-      render: (_: any, record: any) => (
+      render: (_: any, record: Candidate) => (
         <Link href={`/dashboard/company/${companyId}/candidates/${record.id}`}>
           <Button type="link" size="small">詳細</Button>
         </Link>
@@ -143,12 +180,10 @@ export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
     },
   ];
 
-  // サンプルデータ
-  const candidatesData = [
-    { id: '1', name: '山田太郎', position: 'フロントエンドエンジニア', date: '2024-03-15', status: 'reviewing' },
-    { id: '2', name: '佐藤花子', position: 'UIデザイナー', date: '2024-03-14', status: 'interviewed' },
-    { id: '3', name: '鈴木一郎', position: 'バックエンドエンジニア', date: '2024-03-13', status: 'new' }
-  ];
+  // 最近の応募者データ（最新の3件を表示）
+  const recentCandidates = candidates
+    .sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime())
+    .slice(0, 3);
 
   // ログアウト処理
   const handleLogout = async () => {
@@ -249,72 +284,85 @@ export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
         style={{ marginBottom: '24px' }}
         extra={
           <Link href={`/dashboard/company/${companyId}/candidates`}>
-            <Button type="link">
-              全ての応募者を見る <RightOutlined />
-            </Button>
+            <Button type="link">すべて表示</Button>
           </Link>
         }
       >
-        <Table
-          columns={columns}
-          dataSource={candidatesData}
-          rowKey="id"
-          pagination={false}
-        />
+        {recentCandidates.length > 0 ? (
+          <Table 
+            columns={columns} 
+            dataSource={recentCandidates} 
+            rowKey="id" 
+            pagination={false}
+          />
+        ) : (
+          <div className="text-center py-4">
+            <Text type="secondary">応募者がいません</Text>
+            <div className="mt-2">
+              <Link href={`/dashboard/company/${companyId}/candidates/new`}>
+                <Button type="primary">候補者を追加</Button>
+              </Link>
+            </div>
+          </div>
+        )}
       </Card>
 
-      {/* 企業情報 */}
-      <Card
-        title="企業情報"
-        extra={
-          isCompanyAdmin && (
-            <Link href={`/dashboard/company/${companyId}/settings`}>
-              <Button type="link">
-                企業情報を編集する <RightOutlined />
-              </Button>
-            </Link>
-          )
-        }
-      >
-        <Descriptions bordered column={{ xxl: 4, xl: 3, lg: 3, md: 2, sm: 1, xs: 1 }}>
+      {/* 会社情報 */}
+      <Card title="会社情報">
+        <Descriptions column={{ xs: 1, sm: 2, md: 3 }} layout="vertical">
           <Descriptions.Item label="会社名">{company.name}</Descriptions.Item>
-          <Descriptions.Item label="業種">{company.industry || '未設定'}</Descriptions.Item>
+          <Descriptions.Item label="業種">{company.industry || '-'}</Descriptions.Item>
+          <Descriptions.Item label="従業員数">{company.employeeCount ? `${company.employeeCount}名` : '-'}</Descriptions.Item>
           <Descriptions.Item label="Webサイト">
             {company.website ? (
               <a href={company.website} target="_blank" rel="noopener noreferrer">
                 {company.website}
               </a>
             ) : (
-              '未設定'
+              '-'
             )}
           </Descriptions.Item>
-          <Descriptions.Item label="従業員数">{company.employeeCount || '未設定'}</Descriptions.Item>
+          <Descriptions.Item label="説明">{company.description || '-'}</Descriptions.Item>
         </Descriptions>
+        
+        {isCompanyAdmin && (
+          <div className="mt-4 text-right">
+            <Link href={`/dashboard/company/${companyId}/settings`}>
+              <Button>編集</Button>
+            </Link>
+          </div>
+        )}
       </Card>
     </Content>
   );
 }
 
-// ステータスに応じたラベルを返す
 function getStatusLabel(status: string): string {
-  switch (status) {
-    case 'new': return '新規';
-    case 'reviewing': return '書類選考中';
-    case 'interviewed': return '面接済み';
-    case 'offered': return '内定';
-    case 'rejected': return '不採用';
-    default: return status;
-  }
+  const statusMap: Record<string, string> = {
+    new: '新規',
+    screening: '書類選考中',
+    interview: '面接中',
+    technical: '技術評価中',
+    offer: '内定',
+    hired: '採用',
+    rejected: '不採用',
+    withdrawn: '辞退'
+  };
+  
+  return statusMap[status] || status;
 }
 
-// ステータスに応じたタグの色を返す
 function getStatusTagColor(status: string): string {
-  switch (status) {
-    case 'new': return 'blue';
-    case 'reviewing': return 'gold';
-    case 'interviewed': return 'purple';
-    case 'offered': return 'green';
-    case 'rejected': return 'red';
-    default: return 'default';
-  }
+  const colorMap: Record<string, string> = {
+    new: 'blue',
+    screening: 'cyan',
+    interview: 'processing',
+    technical: 'purple',
+    offer: 'orange',
+    hired: 'success',
+    rejected: 'error',
+    withdrawn: 'default'
+  };
+  
+  return colorMap[status] || 'default';
 } 
