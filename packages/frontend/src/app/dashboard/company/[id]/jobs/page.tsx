@@ -29,6 +29,8 @@ import {
   DeleteOutlined,
   ExclamationCircleOutlined
 } from '@ant-design/icons';
+import { getJobPostings, deleteJobPosting, duplicateJobPosting } from '@/lib/api/job-postings';
+import { JobPosting } from '@/types';
 
 const { Title, Text } = Typography;
 const { Content } = Layout;
@@ -37,69 +39,10 @@ const { confirm } = Modal;
 // 求人のステータス
 const JOB_STATUS = {
   DRAFT: 'draft',
-  PUBLISHED: 'published',
+  PUBLISHED: 'open',
   CLOSED: 'closed',
   ARCHIVED: 'archived'
 };
-
-// 仮のデータ（実際の実装ではAPIから取得する）
-const mockJobs = [
-  {
-    id: '1',
-    title: 'フロントエンドエンジニア',
-    department: '開発部',
-    location: '東京',
-    type: '正社員',
-    status: JOB_STATUS.PUBLISHED,
-    applicantsCount: 12,
-    createdAt: '2024-03-10T09:00:00Z',
-    updatedAt: '2024-03-15T14:30:00Z',
-  },
-  {
-    id: '2',
-    title: 'バックエンドエンジニア',
-    department: '開発部',
-    location: '東京',
-    type: '正社員',
-    status: JOB_STATUS.PUBLISHED,
-    applicantsCount: 8,
-    createdAt: '2024-03-12T10:15:00Z',
-    updatedAt: '2024-03-14T11:45:00Z',
-  },
-  {
-    id: '3',
-    title: 'UIデザイナー',
-    department: 'デザイン部',
-    location: '大阪',
-    type: '正社員',
-    status: JOB_STATUS.DRAFT,
-    applicantsCount: 0,
-    createdAt: '2024-03-18T08:30:00Z',
-    updatedAt: '2024-03-18T08:30:00Z',
-  },
-  {
-    id: '4',
-    title: 'プロジェクトマネージャー',
-    department: '事業部',
-    location: '東京',
-    type: '正社員',
-    status: JOB_STATUS.CLOSED,
-    applicantsCount: 15,
-    createdAt: '2024-02-20T14:00:00Z',
-    updatedAt: '2024-03-20T15:10:00Z',
-  },
-  {
-    id: '5',
-    title: 'カスタマーサポート',
-    department: 'サポート部',
-    location: 'リモート',
-    type: 'パートタイム',
-    status: JOB_STATUS.PUBLISHED,
-    applicantsCount: 4,
-    createdAt: '2024-03-15T09:45:00Z',
-    updatedAt: '2024-03-17T16:20:00Z',
-  }
-];
 
 // 状態表示のための設定
 const statusConfig: Record<string, { color: string; text: string }> = {
@@ -110,15 +53,29 @@ const statusConfig: Record<string, { color: string; text: string }> = {
 };
 
 // 日付フォーマット関数
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('ja-JP', {
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
+const formatDate = (dateString: string | null | undefined) => {
+  if (!dateString) {
+    return '日付なし';
+  }
+  
+  try {
+    const date = new Date(dateString);
+    // 無効な日付かチェック
+    if (isNaN(date.getTime())) {
+      return '無効な日付';
+    }
+    
+    return new Intl.DateTimeFormat('ja-JP', {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  } catch (err) {
+    console.error('日付のフォーマットに失敗しました', err);
+    return '無効な日付';
+  }
 };
 
 export default function JobsPage() {
@@ -126,25 +83,24 @@ export default function JobsPage() {
   const params = useParams() || {};
   const companyId = typeof params.id === 'string' ? params.id : '';
   
-  const [jobs, setJobs] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
   
   useEffect(() => {
-    // APIからデータを取得する代わりにモックデータを使用
+    // APIからデータを取得
     const fetchJobs = async () => {
+      if (!companyId) return;
+      
       setLoading(true);
       try {
-        // TODO: 実際のAPIリクエストに置き換える
-        // 仮のデータ取得処理
-        setTimeout(() => {
-          setJobs(mockJobs);
-          setLoading(false);
-        }, 800);
+        const fetchedJobs = await getJobPostings(companyId);
+        setJobs(fetchedJobs);
       } catch (err) {
         console.error('求人データの取得に失敗しました', err);
         setError('求人データの取得に失敗しました。再度お試しください。');
+      } finally {
         setLoading(false);
       }
     };
@@ -153,7 +109,7 @@ export default function JobsPage() {
   }, [companyId]);
   
   // 求人項目の操作メニュー
-  const getActionMenu = (record: any): MenuProps => ({
+  const getActionMenu = (record: JobPosting): MenuProps => ({
     items: [
       {
         key: 'edit',
@@ -187,7 +143,7 @@ export default function JobsPage() {
   });
   
   // 行クリック時のハンドラー
-  const handleRowClick = (record: any) => {
+  const handleRowClick = (record: JobPosting) => {
     return {
       onClick: () => {
         handleViewJob(record);
@@ -196,25 +152,34 @@ export default function JobsPage() {
     };
   };
   
-  // 求人操作関数（実際の実装ではAPIを呼び出す）
+  // 求人操作関数
   const handleCreateJob = () => {
     router.push(`/dashboard/company/${companyId}/jobs/new`);
   };
   
-  const handleEditJob = (job: any) => {
+  const handleEditJob = (job: JobPosting) => {
     router.push(`/dashboard/company/${companyId}/jobs/${job.id}/edit`);
   };
   
-  const handleViewJob = (job: any) => {
+  const handleViewJob = (job: JobPosting) => {
     router.push(`/dashboard/company/${companyId}/jobs/${job.id}`);
   };
   
-  const handleDuplicateJob = (job: any) => {
-    // TODO: APIを呼び出して求人を複製する
-    messageApi.info(`「${job.title}」を複製しました`);
+  const handleDuplicateJob = async (job: JobPosting) => {
+    try {
+      await duplicateJobPosting(job.id);
+      messageApi.success(`「${job.title}」を複製しました`);
+      
+      // 求人リストを再取得
+      const updatedJobs = await getJobPostings(companyId);
+      setJobs(updatedJobs);
+    } catch (err) {
+      console.error('求人の複製に失敗しました', err);
+      messageApi.error('求人の複製に失敗しました');
+    }
   };
   
-  const handleDeleteJob = (job: any) => {
+  const handleDeleteJob = (job: JobPosting) => {
     confirm({
       title: '求人を削除しますか？',
       icon: <ExclamationCircleOutlined />,
@@ -222,11 +187,17 @@ export default function JobsPage() {
       okText: '削除',
       okType: 'danger',
       cancelText: 'キャンセル',
-      onOk() {
-        // TODO: APIを呼び出して求人を削除する
-        messageApi.success(`「${job.title}」を削除しました`);
-        // 一時的な処理として、UIから削除
-        setJobs(jobs.filter(item => item.id !== job.id));
+      onOk: async () => {
+        try {
+          await deleteJobPosting(job.id);
+          messageApi.success(`「${job.title}」を削除しました`);
+          
+          // 求人リストから削除した求人を除外
+          setJobs(jobs.filter(item => item.id !== job.id));
+        } catch (err) {
+          console.error('求人の削除に失敗しました', err);
+          messageApi.error('求人の削除に失敗しました');
+        }
       },
     });
   };
@@ -250,34 +221,47 @@ export default function JobsPage() {
     },
     {
       title: '雇用形態',
-      dataIndex: 'type',
-      key: 'type',
+      dataIndex: 'employmentType',
+      key: 'employmentType',
+      render: (type: string) => {
+        const typeMap: Record<string, string> = {
+          'full-time': '正社員',
+          'part-time': 'パートタイム',
+          'contract': '契約社員'
+        };
+        return typeMap[type] || type;
+      }
     },
     {
       title: 'ステータス',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
-        <Tag color={statusConfig[status].color}>
-          {statusConfig[status].text}
+        <Tag color={statusConfig[status]?.color || 'default'}>
+          {statusConfig[status]?.text || status}
         </Tag>
       ),
     },
     {
       title: '応募者数',
-      dataIndex: 'applicantsCount',
       key: 'applicantsCount',
+      render: (_: unknown, record: JobPosting) => {
+        // APIレスポンスにcandidatesプロパティがない場合は0を表示
+        return 0; // バックエンドAPIから応募者数を取得するロジックを実装予定
+      },
     },
     {
       title: '最終更新',
-      dataIndex: 'updatedAt',
       key: 'updatedAt',
-      render: (date: string) => formatDate(date),
+      render: (_: unknown, record: JobPosting) => {
+        // JobPosting型にはupdatedAtがないため、postedDateを使用
+        return formatDate(record.postedDate);
+      },
     },
     {
       title: '',
       key: 'action',
-      render: (_: any, record: any) => (
+      render: (_: unknown, record: JobPosting) => (
         <Dropdown menu={getActionMenu(record)} trigger={['click']}>
           <Button
             type="text"
