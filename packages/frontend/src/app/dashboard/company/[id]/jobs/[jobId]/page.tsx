@@ -41,7 +41,6 @@ import { differenceInDays } from 'date-fns';
 
 const { Title, Text, Paragraph } = Typography;
 const { Content } = Layout;
-const { TabPane } = Tabs;
 const { confirm } = Modal;
 
 // 雇用形態の表示名
@@ -385,17 +384,21 @@ export default function JobDetailPage() {
           activeKey={activeTab}
           onChange={handleTabChange}
           tabBarStyle={{ marginBottom: '24px' }}
-        >
-          <TabPane tab="求人詳細" key="details" />
-          <TabPane 
-            tab={
-              <span>
-                応募者 <Tag>{job.applicantsCount || 0}</Tag>
-              </span>
-            } 
-            key="applicants"
-          />
-        </Tabs>
+          items={[
+            {
+              key: 'details',
+              label: '求人詳細',
+            },
+            {
+              key: 'applicants',
+              label: (
+                <span>
+                  応募者 <Tag>{job.applicantsCount || 0}</Tag>
+                </span>
+              )
+            }
+          ]}
+        />
         
         {activeTab === 'details' ? (
           <div>

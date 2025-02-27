@@ -46,7 +46,6 @@ dayjs.locale('ja');
 const { Title, Text } = Typography;
 const { Content } = Layout;
 const { confirm } = Modal;
-const { TabPane } = Tabs;
 
 // 面接のステータス
 const INTERVIEW_STATUS = {
@@ -499,26 +498,27 @@ export default function InterviewsPage() {
           activeKey={activeTab} 
           onChange={handleTabChange}
           tabBarStyle={{ marginBottom: '16px' }}
-        >
-          <TabPane 
-            tab={
-              <span>
-                <CalendarOutlined />
-                カレンダー表示
-              </span>
-            } 
-            key="calendar" 
-          />
-          <TabPane 
-            tab={
-              <span>
-                <UnorderedListOutlined />
-                リスト表示
-              </span>
-            } 
-            key="list" 
-          />
-        </Tabs>
+          items={[
+            {
+              key: 'calendar',
+              label: (
+                <span>
+                  <CalendarOutlined />
+                  カレンダー表示
+                </span>
+              )
+            },
+            {
+              key: 'list',
+              label: (
+                <span>
+                  <UnorderedListOutlined />
+                  リスト表示
+                </span>
+              )
+            }
+          ]}
+        />
         {renderContent()}
       </Card>
       
@@ -530,4 +530,4 @@ export default function InterviewsPage() {
       `}</style>
     </Content>
   );
-} 
+}
