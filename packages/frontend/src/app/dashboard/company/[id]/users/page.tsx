@@ -7,6 +7,7 @@ import { Button, Typography, Card, Spin, Layout, Space, Alert, Table, Tag, Empty
 import { UserAddOutlined, ArrowLeftOutlined, EditOutlined } from '@ant-design/icons';
 import { User, UserRole } from '../../../../../types';
 import { getTenantUsers } from '../../../../../lib/api/tenant';
+import { useRouter } from 'next/navigation';
 
 const { Title, Text } = Typography;
 const { Content } = Layout;
@@ -44,6 +45,7 @@ export default function CompanyUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
   
   useEffect(() => {
     const fetchUsers = async () => {
@@ -164,7 +166,23 @@ export default function CompanyUsersPage() {
       );
     }
 
-    return <Table columns={columns} dataSource={users} rowKey="id" />;
+    // 行をクリックしたときの処理
+    const handleRowClick = (record: User) => {
+      return {
+        onClick: () => {
+          router.push(`/dashboard/company/${companyId}/users/${record.id}/edit`);
+        },
+        style: { cursor: 'pointer' }
+      };
+    };
+
+    return <Table 
+      columns={columns} 
+      dataSource={users} 
+      rowKey="id" 
+      onRow={handleRowClick}
+      rowClassName={() => 'user-table-row'}
+    />;
   };
   
   return (
@@ -189,6 +207,13 @@ export default function CompanyUsersPage() {
       <Card>
         {renderUserContent()}
       </Card>
+
+      <style jsx global>{`
+        .user-table-row:hover {
+          background-color: #f5f5f5;
+          transition: background-color 0.3s;
+        }
+      `}</style>
     </Content>
   );
 } 

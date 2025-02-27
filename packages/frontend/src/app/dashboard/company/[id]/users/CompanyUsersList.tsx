@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Table, Button, Tag, Typography, Empty, Alert, Spin } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { User, UserRole } from '../../../../../types';
 import { getTenantUsers } from '../../../../../lib/api/tenant';
 
@@ -43,6 +44,7 @@ const CompanyUsersList: React.FC<CompanyUsersListProps> = ({ companyId }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -151,7 +153,33 @@ const CompanyUsersList: React.FC<CompanyUsersListProps> = ({ companyId }) => {
     );
   }
 
-  return <Table columns={columns} dataSource={users} rowKey="id" />;
+  // 行をクリックしたときの処理
+  const handleRowClick = (record: User) => {
+    return {
+      onClick: () => {
+        router.push(`/dashboard/company/${companyId}/users/${record.id}/edit`);
+      },
+      style: { cursor: 'pointer' }
+    };
+  };
+
+  return (
+    <>
+      <Table 
+        columns={columns} 
+        dataSource={users} 
+        rowKey="id" 
+        onRow={handleRowClick}
+        rowClassName={() => 'user-table-row'}
+      />
+      <style jsx global>{`
+        .user-table-row:hover {
+          background-color: #f5f5f5;
+          transition: background-color 0.3s;
+        }
+      `}</style>
+    </>
+  );
 };
 
 export default CompanyUsersList; 
