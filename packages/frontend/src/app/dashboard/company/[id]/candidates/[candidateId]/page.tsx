@@ -22,7 +22,10 @@ import {
   Table,
   Tooltip,
   Modal,
-  message
+  message,
+  Select,
+  Form,
+  Input
 } from 'antd';
 import { 
   ArrowLeftOutlined, 
@@ -207,6 +210,56 @@ const RECOMMENDATION_CONFIG = {
   'neutral': { color: 'warning', text: '判断保留', icon: <ExclamationCircleOutlined /> }
 };
 
+// 候補者のステータスを更新するAPI
+const updateCandidateStatus = async (candidateId: string, status: string): Promise<any> => {
+  return new Promise<any>((resolve) => {
+    // 実際のAPIコールをシミュレート
+    setTimeout(() => {
+      resolve({
+        success: true,
+        message: 'ステータスが更新されました',
+        newStatus: status
+      });
+    }, 1000);
+  });
+};
+
+// 候補者にメールを送信するAPI
+const sendEmailToCandidate = async (candidateId: string, emailData: { subject: string; body: string }): Promise<any> => {
+  return new Promise<any>((resolve) => {
+    // 実際のAPIコールをシミュレート
+    setTimeout(() => {
+      resolve({
+        success: true,
+        message: 'メールが送信されました'
+      });
+    }, 1000);
+  });
+};
+
+// 評価追加API関数を追加
+// 候補者の評価を追加するAPI
+const addCandidateEvaluation = async (candidateId: string, evaluationData: any): Promise<any> => {
+  return new Promise<any>((resolve) => {
+    // 実際のAPIコールをシミュレート
+    setTimeout(() => {
+      resolve({
+        success: true,
+        message: '評価が追加されました',
+        evaluation: {
+          id: `eval-${Date.now()}`,
+          interviewer: { 
+            id: 'current-user-id', 
+            name: '現在のユーザー' 
+          },
+          date: new Date().toISOString(),
+          ...evaluationData
+        }
+      });
+    }, 1000);
+  });
+};
+
 export default function CandidateDetailPage() {
   const router = useRouter();
   const params = useParams() || {};
@@ -218,6 +271,15 @@ export default function CandidateDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('profile');
   const [messageApi, contextHolder] = message.useMessage();
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [statusForm] = Form.useForm();
+  const [emailModalVisible, setEmailModalVisible] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailForm] = Form.useForm();
+  const [evaluationModalVisible, setEvaluationModalVisible] = useState(false);
+  const [addingEvaluation, setAddingEvaluation] = useState(false);
+  const [evaluationForm] = Form.useForm();
   
   useEffect(() => {
     const fetchCandidateDetail = async () => {
@@ -244,13 +306,25 @@ export default function CandidateDetailPage() {
   };
   
   const handleChangeStatus = () => {
-    // ステータス変更画面を表示（モーダルやドロップダウン）
-    messageApi.info('ステータス変更機能は開発中です');
+    statusForm.setFieldsValue({
+      status: candidate.status
+    });
+    setStatusModalVisible(true);
   };
   
   const handleSendEmail = () => {
-    // メール送信画面を表示
-    messageApi.info('メール送信機能は開発中です');
+    // メールのテンプレートを設定
+    emailForm.setFieldsValue({
+      to: candidate.email,
+      subject: `【採用情報】${candidate.name}様へのご連絡`,
+      body: `${candidate.name}様
+
+お世話になっております。
+株式会社○○採用担当でございます。
+
+`
+    });
+    setEmailModalVisible(true);
   };
   
   const handleScheduleInterview = () => {
@@ -259,8 +333,14 @@ export default function CandidateDetailPage() {
   };
   
   const handleAddEvaluation = () => {
-    // 評価追加画面を表示
-    messageApi.info('評価追加機能は開発中です');
+    // 評価フォームの初期値をセット
+    evaluationForm.setFieldsValue({
+      rating: 3,
+      recommendation: 'neutral',
+      strengths: '',
+      weaknesses: ''
+    });
+    setEvaluationModalVisible(true);
   };
   
   const handleTabChange = (key: string) => {
@@ -269,6 +349,129 @@ export default function CandidateDetailPage() {
   
   const handleViewInterview = (interviewId: string) => {
     router.push(`/dashboard/company/${companyId}/interviews/${interviewId}`);
+  };
+  
+  // ステータス変更を実行する関数を追加
+  const handleStatusSubmit = async () => {
+    try {
+      const values = await statusForm.validateFields();
+      setUpdatingStatus(true);
+      
+      // APIを呼び出してステータスを更新
+      const result = await updateCandidateStatus(candidateId, values.status);
+      
+      if (result.success) {
+        messageApi.success('ステータスを更新しました');
+        
+        // ローカルの候補者データを更新
+        setCandidate((prev: any) => ({
+          ...prev,
+          status: values.status
+        }));
+        
+        // タイムラインに項目を追加
+        const newTimelineItem = {
+          id: `timeline-${Date.now()}`,
+          date: new Date().toISOString(),
+          type: 'status_change',
+          title: 'ステータス変更',
+          description: `${STATUS_CONFIG[candidate.status as CandidateStatusKey]?.text || candidate.status}から${STATUS_CONFIG[values.status as CandidateStatusKey]?.text || values.status}に変更されました`
+        };
+        
+        setCandidate((prev: any) => ({
+          ...prev,
+          timeline: [newTimelineItem, ...prev.timeline]
+        }));
+        
+        setStatusModalVisible(false);
+      }
+    } catch (error) {
+      console.error('ステータス更新エラー:', error);
+      messageApi.error('ステータスの更新に失敗しました');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+  
+  // メール送信を実行する関数を追加（handleStatusSubmitの下に追加）
+  const handleEmailSubmit = async () => {
+    try {
+      const values = await emailForm.validateFields();
+      setSendingEmail(true);
+      
+      // APIを呼び出してメールを送信
+      const result = await sendEmailToCandidate(candidateId, {
+        subject: values.subject,
+        body: values.body
+      });
+      
+      if (result.success) {
+        messageApi.success('メールを送信しました');
+        
+        // タイムラインに項目を追加
+        const newTimelineItem = {
+          id: `timeline-${Date.now()}`,
+          date: new Date().toISOString(),
+          type: 'email',
+          title: 'メール送信',
+          description: `件名: ${values.subject}`
+        };
+        
+        setCandidate((prev: any) => ({
+          ...prev,
+          timeline: [newTimelineItem, ...prev.timeline]
+        }));
+        
+        setEmailModalVisible(false);
+      }
+    } catch (error) {
+      console.error('メール送信エラー:', error);
+      messageApi.error('メールの送信に失敗しました');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+  
+  // 評価追加を実行する関数を追加
+  const handleEvaluationSubmit = async () => {
+    try {
+      const values = await evaluationForm.validateFields();
+      setAddingEvaluation(true);
+      
+      // APIを呼び出して評価を追加
+      const result = await addCandidateEvaluation(candidateId, values);
+      
+      if (result.success) {
+        messageApi.success('評価を追加しました');
+        
+        // ローカルの候補者データを更新
+        setCandidate((prev: any) => ({
+          ...prev,
+          evaluations: [result.evaluation, ...prev.evaluations]
+        }));
+        
+        // タイムラインに項目を追加
+        const newTimelineItem = {
+          id: `timeline-${Date.now()}`,
+          date: new Date().toISOString(),
+          type: 'note',
+          title: '評価が追加されました',
+          description: `${result.evaluation.interviewer.name}による評価`
+        };
+        
+        setCandidate((prev: any) => ({
+          ...prev,
+          timeline: [newTimelineItem, ...prev.timeline]
+        }));
+        
+        setEvaluationModalVisible(false);
+      }
+    } catch (error) {
+      console.error('評価追加エラー:', error);
+      messageApi.error('評価の追加に失敗しました');
+    } finally {
+      setAddingEvaluation(false);
+    }
   };
   
   if (!companyId || !candidateId) {
@@ -754,6 +957,132 @@ export default function CandidateDetailPage() {
           items={tabItems}
         />
       </Card>
+
+      {/* ステータス変更モーダル */}
+      <Modal
+        title="ステータス変更"
+        open={statusModalVisible}
+        onOk={handleStatusSubmit}
+        onCancel={() => setStatusModalVisible(false)}
+        confirmLoading={updatingStatus}
+        okText="更新"
+        cancelText="キャンセル"
+      >
+        <Form
+          form={statusForm}
+          layout="vertical"
+        >
+          <Form.Item
+            name="status"
+            label="新しいステータス"
+            rules={[{ required: true, message: 'ステータスを選択してください' }]}
+          >
+            <Select>
+              {Object.entries(STATUS_CONFIG).map(([key, { text }]) => (
+                <Select.Option key={key} value={key}>
+                  <Tag color={STATUS_CONFIG[key as CandidateStatusKey].color}>
+                    {text}
+                  </Tag>
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* メール送信モーダル */}
+      <Modal
+        title="メール送信"
+        open={emailModalVisible}
+        onOk={handleEmailSubmit}
+        onCancel={() => setEmailModalVisible(false)}
+        confirmLoading={sendingEmail}
+        okText="送信"
+        cancelText="キャンセル"
+        width={700}
+      >
+        <Form
+          form={emailForm}
+          layout="vertical"
+        >
+          <Form.Item
+            name="to"
+            label="宛先"
+          >
+            <Input disabled />
+          </Form.Item>
+          <Form.Item
+            name="subject"
+            label="件名"
+            rules={[{ required: true, message: '件名を入力してください' }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="body"
+            label="本文"
+            rules={[{ required: true, message: '本文を入力してください' }]}
+          >
+            <Input.TextArea rows={10} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 評価追加モーダル */}
+      <Modal
+        title="評価を追加"
+        open={evaluationModalVisible}
+        onOk={handleEvaluationSubmit}
+        onCancel={() => setEvaluationModalVisible(false)}
+        confirmLoading={addingEvaluation}
+        okText="追加"
+        cancelText="キャンセル"
+        width={700}
+      >
+        <Form
+          form={evaluationForm}
+          layout="vertical"
+        >
+          <Form.Item
+            name="rating"
+            label="総合評価"
+            rules={[{ required: true, message: '評価を選択してください' }]}
+          >
+            <Rate />
+          </Form.Item>
+          <Form.Item
+            name="recommendation"
+            label="推薦"
+            rules={[{ required: true, message: '推薦を選択してください' }]}
+          >
+            <Select>
+              <Select.Option value="positive">
+                <Tag color="success" icon={<CheckCircleOutlined />}>採用推薦</Tag>
+              </Select.Option>
+              <Select.Option value="neutral">
+                <Tag color="warning" icon={<ExclamationCircleOutlined />}>判断保留</Tag>
+              </Select.Option>
+              <Select.Option value="negative">
+                <Tag color="error" icon={<CloseCircleOutlined />}>不採用推薦</Tag>
+              </Select.Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="strengths"
+            label="長所"
+            rules={[{ required: true, message: '長所を入力してください' }]}
+          >
+            <Input.TextArea rows={4} placeholder="候補者の長所、高く評価できる点を記入してください" />
+          </Form.Item>
+          <Form.Item
+            name="weaknesses"
+            label="改善点"
+            rules={[{ required: true, message: '改善点を入力してください' }]}
+          >
+            <Input.TextArea rows={4} placeholder="候補者の改善点、課題などを記入してください" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </Content>
   );
 } 
