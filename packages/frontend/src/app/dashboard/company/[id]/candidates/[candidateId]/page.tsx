@@ -40,12 +40,12 @@ import {
   CloseCircleOutlined,
   ExclamationCircleOutlined,
   DownloadOutlined,
-  CalendarOutlined
+  CalendarOutlined,
+  GlobalOutlined
 } from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;
 const { Content } = Layout;
-const { TabPane } = Tabs;
 const { confirm } = Modal;
 
 // 応募者の状態表示用設定
@@ -70,6 +70,13 @@ const SOURCE_LABELS = {
   'job_fair': '就職フェア',
   'other': 'その他'
 };
+
+// 型定義を追加します
+type CandidateSourceKey = keyof typeof SOURCE_LABELS;
+type InterviewTypeKey = keyof typeof INTERVIEW_TYPE_LABELS;
+type InterviewStatusKey = keyof typeof INTERVIEW_STATUS_CONFIG;
+type CandidateStatusKey = keyof typeof STATUS_CONFIG;
+type RecommendationKey = keyof typeof RECOMMENDATION_CONFIG;
 
 // 仮の候補者データ取得API
 const getCandidateDetail = async (candidateId: string) => {
@@ -365,6 +372,340 @@ export default function CandidateDetailPage() {
       return <div key={index}>{line}</div>;
     });
   };
+
+  // タブのアイテムを定義
+  const tabItems = [
+    {
+      key: 'profile',
+      label: 'プロフィール',
+      children: (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 2, marginRight: 24 }}>
+              <Descriptions
+                title="基本情報"
+                bordered
+                column={{ xxl: 2, xl: 2, lg: 2, md: 1, sm: 1, xs: 1 }}
+              >
+                <Descriptions.Item label="メールアドレス">{candidate.email}</Descriptions.Item>
+                <Descriptions.Item label="電話番号">{candidate.phone || '-'}</Descriptions.Item>
+                <Descriptions.Item label="応募職種">{candidate.jobTitle}</Descriptions.Item>
+                <Descriptions.Item label="応募経路">{SOURCE_LABELS[candidate.source as CandidateSourceKey] || candidate.source}</Descriptions.Item>
+                <Descriptions.Item label="応募日">{formatDate(candidate.appliedAt)}</Descriptions.Item>
+                <Descriptions.Item label="生年月日">{candidate.birthDate || '-'}</Descriptions.Item>
+                <Descriptions.Item label="現在の勤務先">{candidate.currentCompany || '-'}</Descriptions.Item>
+                <Descriptions.Item label="希望年収">{candidate.expectedSalary || '-'}</Descriptions.Item>
+                <Descriptions.Item label="入社可能時期">{candidate.availableFrom || '-'}</Descriptions.Item>
+                <Descriptions.Item label="評価">
+                  <Rate disabled defaultValue={candidate.rating} />
+                </Descriptions.Item>
+              </Descriptions>
+              
+              <Divider />
+              
+              {/* 履歴書・職務経歴書 */}
+              {candidate.resumeFile && (
+                <div style={{ marginBottom: '24px' }}>
+                  <Title level={4}>履歴書・職務経歴書</Title>
+                  <Card 
+                    size="small" 
+                    style={{ width: '100%', marginBottom: '16px' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Space>
+                        <FilePdfOutlined style={{ fontSize: '24px', color: '#ff4d4f' }} />
+                        <div>
+                          <div>{candidate.resumeFile.name}</div>
+                          <Text type="secondary" style={{ fontSize: '12px' }}>
+                            アップロード日: {formatDate(candidate.appliedAt)}
+                          </Text>
+                        </div>
+                      </Space>
+                      <Button 
+                        type="primary" 
+                        shape="round" 
+                        icon={<DownloadOutlined />}
+                        size="small"
+                      >
+                        ダウンロード
+                      </Button>
+                    </div>
+                  </Card>
+                </div>
+              )}
+              
+              {/* スキル・経験 */}
+              {candidate.skills && (
+                <div style={{ marginBottom: '24px' }}>
+                  <Title level={4}>スキル・経験</Title>
+                  <div>{formatTextWithLineBreaks(candidate.skills)}</div>
+                </div>
+              )}
+              
+              {/* 学歴 */}
+              {candidate.education && (
+                <div style={{ marginBottom: '24px' }}>
+                  <Title level={4}>学歴</Title>
+                  <div>{formatTextWithLineBreaks(candidate.education)}</div>
+                </div>
+              )}
+              
+              {/* 備考 */}
+              {candidate.notes && (
+                <div style={{ marginBottom: '24px' }}>
+                  <Title level={4}>備考</Title>
+                  <Paragraph>{candidate.notes}</Paragraph>
+                </div>
+              )}
+            </div>
+            
+            <div style={{ flex: 1 }}>
+              {/* SNSリンク */}
+              {candidate.urls && Object.keys(candidate.urls).some(key => candidate.urls[key]) && (
+                <Card title="ウェブサイト・SNS" style={{ marginBottom: '24px' }}>
+                  <List
+                    itemLayout="horizontal"
+                    dataSource={Object.entries(candidate.urls).filter(([_, url]) => url)}
+                    renderItem={([key, url]: [string, any]) => {
+                      let icon;
+                      let label;
+                      
+                      switch (key) {
+                        case 'website':
+                          icon = <GlobalOutlined />;
+                          label = 'ウェブサイト';
+                          break;
+                        case 'linkedin':
+                          icon = <LinkOutlined />;
+                          label = 'LinkedIn';
+                          break;
+                        case 'github':
+                          icon = <LinkOutlined />;
+                          label = 'GitHub';
+                          break;
+                        default:
+                          icon = <LinkOutlined />;
+                          label = key;
+                      }
+                      
+                      return (
+                        <List.Item>
+                          <List.Item.Meta
+                            avatar={icon}
+                            title={<a href={url} target="_blank" rel="noopener noreferrer">{label}</a>}
+                            description={url}
+                          />
+                        </List.Item>
+                      );
+                    }}
+                  />
+                </Card>
+              )}
+              
+              {/* アクションボタン */}
+              <Card title="アクション" style={{ marginBottom: '24px' }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Button 
+                    type="primary" 
+                    icon={<CalendarOutlined />} 
+                    block
+                    onClick={handleScheduleInterview}
+                  >
+                    面接を設定
+                  </Button>
+                  <Button 
+                    icon={<FileOutlined />} 
+                    block
+                    onClick={handleAddEvaluation}
+                  >
+                    評価を追加
+                  </Button>
+                </Space>
+              </Card>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'timeline',
+      label: 'タイムライン',
+      children: (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <Title level={4} style={{ margin: 0 }}>応募者の履歴</Title>
+          </div>
+          
+          <Timeline>
+            {sortedTimeline.length > 0 ? (
+              sortedTimeline.map(item => (
+                <TimelineItem key={item.id} item={item} />
+              ))
+            ) : (
+              <Timeline.Item color="gray">履歴がありません</Timeline.Item>
+            )}
+          </Timeline>
+        </div>
+      )
+    },
+    {
+      key: 'interviews',
+      label: '面接',
+      children: (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <Title level={4} style={{ margin: 0 }}>面接予定</Title>
+            <Button 
+              type="primary" 
+              icon={<CalendarOutlined />}
+              onClick={handleScheduleInterview}
+            >
+              面接を設定
+            </Button>
+          </div>
+          
+          {sortedInterviews.length > 0 ? (
+            <Table
+              dataSource={sortedInterviews}
+              rowKey="id"
+              pagination={false}
+              columns={[
+                {
+                  title: '日時',
+                  dataIndex: 'startTime',
+                  key: 'startTime',
+                  render: (startTime, record) => {
+                    if (!startTime) return <Tag color="default">未設定</Tag>;
+                    return (
+                      <div>
+                        <div>{formatDate(startTime)}</div>
+                        {record.endTime && (
+                          <div style={{ color: '#888' }}>
+                            〜 {new Date(record.endTime).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                },
+                {
+                  title: '種類',
+                  dataIndex: 'type',
+                  key: 'type',
+                  render: type => INTERVIEW_TYPE_LABELS[type as InterviewTypeKey] || type
+                },
+                {
+                  title: '場所',
+                  dataIndex: 'location',
+                  key: 'location',
+                  render: location => location || '-'
+                },
+                {
+                  title: '面接官',
+                  dataIndex: 'interviewers',
+                  key: 'interviewers',
+                  render: interviewers => {
+                    if (!interviewers || interviewers.length === 0) return '-';
+                    return interviewers.map((i: any) => i.name).join(', ');
+                  }
+                },
+                {
+                  title: 'ステータス',
+                  dataIndex: 'status',
+                  key: 'status',
+                  render: status => (
+                    <Tag color={INTERVIEW_STATUS_CONFIG[status as InterviewStatusKey]?.color || 'default'}>
+                      {INTERVIEW_STATUS_CONFIG[status as InterviewStatusKey]?.text || status}
+                    </Tag>
+                  )
+                },
+                {
+                  title: '操作',
+                  key: 'action',
+                  render: (_, record) => (
+                    <Button 
+                      type="link" 
+                      onClick={() => handleViewInterview(record.id)}
+                    >
+                      詳細
+                    </Button>
+                  )
+                }
+              ]}
+            />
+          ) : (
+            <Alert message="面接予定はありません" type="info" />
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'evaluations',
+      label: '評価',
+      children: (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <Title level={4} style={{ margin: 0 }}>評価</Title>
+            <Button 
+              type="primary" 
+              icon={<FileOutlined />}
+              onClick={handleAddEvaluation}
+            >
+              評価を追加
+            </Button>
+          </div>
+          
+          {candidate.evaluations.length > 0 ? (
+            <List
+              itemLayout="vertical"
+              dataSource={candidate.evaluations}
+              renderItem={(evaluation: any) => (
+                <Card key={evaluation.id} style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                    <Space>
+                      <Avatar icon={<UserOutlined />} />
+                      <div>
+                        <div><strong>{evaluation.interviewer.name}</strong></div>
+                        <Text type="secondary">{formatDate(evaluation.date)}</Text>
+                      </div>
+                    </Space>
+                    <div>
+                      <Rate disabled defaultValue={evaluation.rating} />
+                      {evaluation.recommendation && (
+                        <Tag 
+                          color={RECOMMENDATION_CONFIG[evaluation.recommendation as RecommendationKey]?.color} 
+                          icon={RECOMMENDATION_CONFIG[evaluation.recommendation as RecommendationKey]?.icon}
+                          style={{ marginLeft: 8 }}
+                        >
+                          {RECOMMENDATION_CONFIG[evaluation.recommendation as RecommendationKey]?.text}
+                        </Tag>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {evaluation.strengths && (
+                    <div style={{ marginBottom: '8px' }}>
+                      <Text strong>長所</Text>
+                      <Paragraph>{evaluation.strengths}</Paragraph>
+                    </div>
+                  )}
+                  
+                  {evaluation.weaknesses && (
+                    <div>
+                      <Text strong>改善点</Text>
+                      <Paragraph>{evaluation.weaknesses}</Paragraph>
+                    </div>
+                  )}
+                </Card>
+              )}
+            />
+          ) : (
+            <Alert message="評価はまだありません" type="info" />
+          )}
+        </div>
+      )
+    }
+  ];
   
   return (
     <Content style={{ padding: '24px' }}>
@@ -384,8 +725,8 @@ export default function CandidateDetailPage() {
           <div>
             <Title level={2} style={{ margin: 0 }}>{candidate.name}</Title>
             <div>
-              <Tag color={STATUS_CONFIG[candidate.status]?.color || 'default'}>
-                {STATUS_CONFIG[candidate.status]?.text || candidate.status}
+              <Tag color={STATUS_CONFIG[candidate.status as CandidateStatusKey]?.color || 'default'}>
+                {STATUS_CONFIG[candidate.status as CandidateStatusKey]?.text || candidate.status}
               </Tag>
               <Text type="secondary" style={{ marginLeft: 8 }}>{candidate.position}</Text>
             </div>
@@ -410,330 +751,8 @@ export default function CandidateDetailPage() {
           activeKey={activeTab}
           onChange={handleTabChange}
           tabBarStyle={{ marginBottom: '24px' }}
-        >
-          <TabPane tab="プロフィール" key="profile" />
-          <TabPane tab="タイムライン" key="timeline" />
-          <TabPane tab="面接" key="interviews" />
-          <TabPane tab="評価" key="evaluations" />
-        </Tabs>
-        
-        {activeTab === 'profile' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ flex: 2, marginRight: 24 }}>
-                <Descriptions
-                  title="基本情報"
-                  bordered
-                  column={{ xxl: 2, xl: 2, lg: 2, md: 1, sm: 1, xs: 1 }}
-                >
-                  <Descriptions.Item label="メールアドレス">{candidate.email}</Descriptions.Item>
-                  <Descriptions.Item label="電話番号">{candidate.phone || '-'}</Descriptions.Item>
-                  <Descriptions.Item label="応募職種">{candidate.jobTitle}</Descriptions.Item>
-                  <Descriptions.Item label="応募経路">{SOURCE_LABELS[candidate.source] || candidate.source}</Descriptions.Item>
-                  <Descriptions.Item label="応募日">{formatDate(candidate.appliedAt)}</Descriptions.Item>
-                  <Descriptions.Item label="生年月日">{candidate.birthDate || '-'}</Descriptions.Item>
-                  <Descriptions.Item label="現在の勤務先">{candidate.currentCompany || '-'}</Descriptions.Item>
-                  <Descriptions.Item label="希望年収">{candidate.expectedSalary || '-'}</Descriptions.Item>
-                  <Descriptions.Item label="入社可能時期">{candidate.availableFrom || '-'}</Descriptions.Item>
-                  <Descriptions.Item label="評価">
-                    <Rate disabled defaultValue={candidate.rating} />
-                  </Descriptions.Item>
-                </Descriptions>
-                
-                <Divider />
-                
-                {/* 履歴書・職務経歴書 */}
-                {candidate.resumeFile && (
-                  <div style={{ marginBottom: '24px' }}>
-                    <Title level={4}>履歴書・職務経歴書</Title>
-                    <Card 
-                      size="small" 
-                      style={{ width: '100%', marginBottom: '16px' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Space>
-                          <FilePdfOutlined style={{ fontSize: '24px', color: '#ff4d4f' }} />
-                          <div>
-                            <div>{candidate.resumeFile.name}</div>
-                            <Text type="secondary" style={{ fontSize: '12px' }}>
-                              アップロード日: {formatDate(candidate.appliedAt)}
-                            </Text>
-                          </div>
-                        </Space>
-                        <Button 
-                          type="primary" 
-                          shape="round" 
-                          icon={<DownloadOutlined />}
-                          size="small"
-                        >
-                          ダウンロード
-                        </Button>
-                      </div>
-                    </Card>
-                  </div>
-                )}
-                
-                {/* スキル・経験 */}
-                {candidate.skills && (
-                  <div style={{ marginBottom: '24px' }}>
-                    <Title level={4}>スキル・経験</Title>
-                    <div>{formatTextWithLineBreaks(candidate.skills)}</div>
-                  </div>
-                )}
-                
-                {/* 学歴 */}
-                {candidate.education && (
-                  <div style={{ marginBottom: '24px' }}>
-                    <Title level={4}>学歴</Title>
-                    <div>{formatTextWithLineBreaks(candidate.education)}</div>
-                  </div>
-                )}
-                
-                {/* 備考 */}
-                {candidate.notes && (
-                  <div style={{ marginBottom: '24px' }}>
-                    <Title level={4}>備考</Title>
-                    <Paragraph>{candidate.notes}</Paragraph>
-                  </div>
-                )}
-              </div>
-              
-              <div style={{ flex: 1 }}>
-                {/* SNSリンク */}
-                {candidate.urls && Object.keys(candidate.urls).some(key => candidate.urls[key]) && (
-                  <Card title="ウェブサイト・SNS" style={{ marginBottom: '24px' }}>
-                    <List
-                      itemLayout="horizontal"
-                      dataSource={Object.entries(candidate.urls).filter(([_, url]) => url)}
-                      renderItem={([key, url]: [string, any]) => {
-                        let icon;
-                        let label;
-                        
-                        switch (key) {
-                          case 'website':
-                            icon = <GlobalOutlined />;
-                            label = 'ウェブサイト';
-                            break;
-                          case 'linkedin':
-                            icon = <LinkOutlined />;
-                            label = 'LinkedIn';
-                            break;
-                          case 'github':
-                            icon = <LinkOutlined />;
-                            label = 'GitHub';
-                            break;
-                          default:
-                            icon = <LinkOutlined />;
-                            label = key;
-                        }
-                        
-                        return (
-                          <List.Item>
-                            <List.Item.Meta
-                              avatar={icon}
-                              title={<a href={url} target="_blank" rel="noopener noreferrer">{label}</a>}
-                              description={url}
-                            />
-                          </List.Item>
-                        );
-                      }}
-                    />
-                  </Card>
-                )}
-                
-                {/* アクションボタン */}
-                <Card title="アクション" style={{ marginBottom: '24px' }}>
-                  <Space direction="vertical" style={{ width: '100%' }}>
-                    <Button 
-                      type="primary" 
-                      icon={<CalendarOutlined />} 
-                      block
-                      onClick={handleScheduleInterview}
-                    >
-                      面接を設定
-                    </Button>
-                    <Button 
-                      icon={<FileOutlined />} 
-                      block
-                      onClick={handleAddEvaluation}
-                    >
-                      評価を追加
-                    </Button>
-                  </Space>
-                </Card>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {activeTab === 'timeline' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <Title level={4} style={{ margin: 0 }}>応募者の履歴</Title>
-            </div>
-            
-            <Timeline>
-              {sortedTimeline.length > 0 ? (
-                sortedTimeline.map(item => (
-                  <TimelineItem key={item.id} item={item} />
-                ))
-              ) : (
-                <Timeline.Item color="gray">履歴がありません</Timeline.Item>
-              )}
-            </Timeline>
-          </div>
-        )}
-        
-        {activeTab === 'interviews' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <Title level={4} style={{ margin: 0 }}>面接予定</Title>
-              <Button 
-                type="primary" 
-                icon={<CalendarOutlined />}
-                onClick={handleScheduleInterview}
-              >
-                面接を設定
-              </Button>
-            </div>
-            
-            {sortedInterviews.length > 0 ? (
-              <Table
-                dataSource={sortedInterviews}
-                rowKey="id"
-                pagination={false}
-                columns={[
-                  {
-                    title: '日時',
-                    dataIndex: 'startTime',
-                    key: 'startTime',
-                    render: (startTime, record) => {
-                      if (!startTime) return <Tag color="default">未設定</Tag>;
-                      return (
-                        <div>
-                          <div>{formatDate(startTime)}</div>
-                          {record.endTime && (
-                            <div style={{ color: '#888' }}>
-                              〜 {new Date(record.endTime).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    }
-                  },
-                  {
-                    title: '種類',
-                    dataIndex: 'type',
-                    key: 'type',
-                    render: type => INTERVIEW_TYPE_LABELS[type] || type
-                  },
-                  {
-                    title: '場所',
-                    dataIndex: 'location',
-                    key: 'location',
-                    render: location => location || '-'
-                  },
-                  {
-                    title: '面接官',
-                    dataIndex: 'interviewers',
-                    key: 'interviewers',
-                    render: interviewers => {
-                      if (!interviewers || interviewers.length === 0) return '-';
-                      return interviewers.map(i => i.name).join(', ');
-                    }
-                  },
-                  {
-                    title: 'ステータス',
-                    dataIndex: 'status',
-                    key: 'status',
-                    render: status => (
-                      <Tag color={INTERVIEW_STATUS_CONFIG[status]?.color || 'default'}>
-                        {INTERVIEW_STATUS_CONFIG[status]?.text || status}
-                      </Tag>
-                    )
-                  },
-                  {
-                    title: '操作',
-                    key: 'action',
-                    render: (_, record) => (
-                      <Button 
-                        type="link" 
-                        onClick={() => handleViewInterview(record.id)}
-                      >
-                        詳細
-                      </Button>
-                    )
-                  }
-                ]}
-              />
-            ) : (
-              <Alert message="面接予定はありません" type="info" />
-            )}
-          </div>
-        )}
-        
-        {activeTab === 'evaluations' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <Title level={4} style={{ margin: 0 }}>評価</Title>
-              <Button 
-                type="primary" 
-                icon={<FileOutlined />}
-                onClick={handleAddEvaluation}
-              >
-                評価を追加
-              </Button>
-            </div>
-            
-            {candidate.evaluations.length > 0 ? (
-              <List
-                itemLayout="vertical"
-                dataSource={candidate.evaluations}
-                renderItem={evaluation => (
-                  <Card key={evaluation.id} style={{ marginBottom: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                      <Space>
-                        <Avatar icon={<UserOutlined />} />
-                        <div>
-                          <div><strong>{evaluation.interviewer.name}</strong></div>
-                          <Text type="secondary">{formatDate(evaluation.date)}</Text>
-                        </div>
-                      </Space>
-                      <div>
-                        <Rate disabled defaultValue={evaluation.rating} />
-                        {evaluation.recommendation && (
-                          <Tag 
-                            color={RECOMMENDATION_CONFIG[evaluation.recommendation]?.color} 
-                            icon={RECOMMENDATION_CONFIG[evaluation.recommendation]?.icon}
-                            style={{ marginLeft: 8 }}
-                          >
-                            {RECOMMENDATION_CONFIG[evaluation.recommendation]?.text}
-                          </Tag>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {evaluation.strengths && (
-                      <div style={{ marginBottom: '8px' }}>
-                        <Text strong>長所</Text>
-                        <Paragraph>{evaluation.strengths}</Paragraph>
-                      </div>
-                    )}
-                    
-                    {evaluation.weaknesses && (
-                      <div>
-                        <Text strong>改善点</Text>
-                        <Paragraph>{evaluation.weaknesses}</Paragraph>
-                      </div>
-                    )}
-                  </Card>
-                )}
-              />
-            ) : (
-              <Alert message="評価はまだありません" type="info" />
-            )}
-          </div>
-        )}
+          items={tabItems}
+        />
       </Card>
     </Content>
   );
