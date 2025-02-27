@@ -1,22 +1,38 @@
+// 候補者の状態
+export type CandidateStatus = 'new' | 'screening' | 'interview' | 'technical' | 'offer' | 'hired' | 'rejected' | 'withdrawn';
+export type CandidateSource = 'company_website' | 'indeed' | 'linkedin' | 'referral' | 'agency' | 'job_fair' | 'other';
+
 export interface Candidate {
   id: string;
   name: string;
   email: string;
-  role: string;
-  status: 'new' | 'reviewing' | 'interviewed' | 'offered' | 'rejected';
-  experience: number;
-  skills: string[];
-  appliedDate: string;
-  notes: string;
-  interviews: Interview[];
-  evaluations: Evaluation[];
-  expectedSalary?: number;
-  currentSalary?: number;
-  source: string;
-  location: string;
-  documents: Document[];
-  jobPostingId: string;
-  emailHistory?: EmailMessage[];
+  phone?: string;
+  position?: string;
+  status: CandidateStatus;
+  experience?: number;
+  skills?: string[];
+  appliedAt: string;
+  updatedAt: string;
+  notes?: string;
+  interviews?: Interview[];
+  evaluations?: Evaluation[];
+  expectedSalary?: string;
+  currentCompany?: string;
+  source: CandidateSource;
+  location?: string;
+  birthDate?: string;
+  availableFrom?: string;
+  education?: string;
+  urls?: {
+    website?: string;
+    linkedin?: string;
+    github?: string;
+  };
+  resumeFileName?: string;
+  resumeFilePath?: string;
+  rating?: number;
+  jobId?: string;
+  jobPosting?: JobPosting;
 }
 
 // 企業（テナント）の型定義
@@ -217,17 +233,19 @@ export const mockCandidates: Candidate[] = [
     id: '1',
     name: '山田 太郎',
     email: 'taro.yamada@example.com',
-    role: 'フロントエンドエンジニア',
-    status: 'reviewing',
+    position: 'フロントエンドエンジニア',
+    status: 'screening',
     experience: 5,
     skills: ['React', 'TypeScript', 'Node.js'],
-    appliedDate: '2024-03-15',
+    appliedAt: '2024-03-15',
+    updatedAt: '2024-03-20',
     notes: '',
-    source: 'リファラル',
+    source: 'referral',
     location: '東京',
-    expectedSalary: 7000000,
-    currentSalary: 6000000,
-    jobPostingId: 'job1',
+    expectedSalary: '700万円',
+    currentCompany: '株式会社テック',
+    jobId: 'job1',
+    rating: 4,
     interviews: [
       {
         id: 'i1',
@@ -240,15 +258,9 @@ export const mockCandidates: Candidate[] = [
       }
     ],
     evaluations: [],
-    documents: [
-      {
-        id: 'd1',
-        type: 'resume',
-        name: '履歴書.pdf',
-        url: 'https://example.com/resume1.pdf',
-        uploadDate: '2024-03-15'
-      }
-    ],
-    emailHistory: []
+    urls: {
+      linkedin: 'https://linkedin.com/in/taro-yamada',
+      github: 'https://github.com/taro-yamada'
+    }
   }
 ];

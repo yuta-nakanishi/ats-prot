@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Typography, Divider, Button, Form, Input, message, Spin, Alert } from 'antd';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { clearAuthState } from '@/lib/utils/auth';
 
 const { Title, Text } = Typography;
 
@@ -10,20 +12,49 @@ export default function Login() {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const [loginError, setLoginError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const fromLogout = searchParams?.get('logout') === 'true';
+  const fromForceLogout = searchParams?.get('force') === 'true';
+  const hasError = searchParams?.get('error') === 'true';
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    
+    console.log('[Login] ページマウント, fromLogout:', fromLogout, 'fromForceLogout:', fromForceLogout);
+    
+    // ログアウトまたは強制ログアウトパラメータがある場合、クリーンアップを実行
+    if (fromLogout || fromForceLogout) {
+      // ユーティリティ関数を使用して認証情報をクリア
+      clearAuthState();
+      
+      // メッセージを表示
+      if (!hasError) {
+        if (fromForceLogout) {
+          message.success('セッションがリセットされました。再度ログインしてください。');
+        } else {
+          message.success('ログアウトしました。再度ログインしてください。');
+        }
+      } else {
+        message.warning('ログアウト中にエラーが発生しましたが、セッションはリセットされています。');
+      }
+      
+      // パラメータのないURLに置き換え（履歴に残さない）
+      window.history.replaceState({}, '', '/login');
+    }
+  }, [fromLogout, fromForceLogout, hasError]);
 
   const onFinish = async (values: { email: string; password: string }) => {
     setLoading(true);
     setLoginError(null); // エラーをリセット
     try {
+      console.log('[Login] ログイン開始:', values.email);
       await login(values.email, values.password);
+      console.log('[Login] ログイン成功');
     } catch (error: any) {
-      console.error('Login failed:', error);
+      console.error('[Login] ログイン失敗:', error);
       const errorMessage = error.message || 'ログインに失敗しました。メールアドレスとパスワードを確認してください。';
       // message.errorとともに状態変数にもセット
       message.error(errorMessage);
@@ -34,7 +65,12 @@ export default function Login() {
   };
 
   const goToRegister = () => {
-    window.location.href = '/register';
+    router.push('/register');
+  };
+
+  // 強制ログアウトリンク
+  const goToForceLogout = () => {
+    router.push('/logout');
   };
 
   // クライアントサイドでのみレンダリング
@@ -98,6 +134,20 @@ export default function Login() {
             style={{ marginTop: 8, display: 'inline-block' }}
           >
             新規登録
+          </Button>
+          
+          <Divider plain style={{ margin: '12px 0' }}></Divider>
+          
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            ログインに問題がある場合は
+          </Text>
+          <br />
+          <Button 
+            type="link" 
+            onClick={goToForceLogout} 
+            style={{ marginTop: 4, display: 'inline-block', fontSize: '12px' }}
+          >
+            セッションをリセット
           </Button>
         </div>
       </Card>

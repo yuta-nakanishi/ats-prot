@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/api';
 import { parseCookies, setCookie, destroyCookie } from 'nookies';
+import { clearAuthState } from '@/lib/utils/auth';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -126,29 +127,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
-    console.log('ログアウト処理開始');
-    authApi.logout()
-      .then(() => {
-        console.log('サーバーサイドログアウト成功');
-      })
-      .catch(error => {
-        console.error('Logout API error:', error);
-      })
-      .finally(() => {
-        // ローカルのトークンを削除
-        localStorage.removeItem('token');
-        
-        // クッキーからも削除
-        destroyCookie(null, 'token', { path: '/' });
-        
-        // Cookieを期限切れにする方法でも削除
-        document.cookie = 'token=; Max-Age=-99999999; path=/;';
-        
-        setIsAuthenticated(false);
-        console.log('ログアウト完了、ログイン画面へリダイレクト');
-        router.push('/login');
-      });
+  const logout = async () => {
+    console.log('[Auth] ログアウト処理開始');
+    
+    // 認証状態を即座に更新
+    setIsAuthenticated(false);
+    
+    try {
+      // ユーティリティ関数を使用して認証情報をクリア
+      clearAuthState();
+      
+      console.log('[Auth] クライアントトークン削除完了');
+      
+      // サーバーサイドのログアウトを実行
+      try {
+        await authApi.logout();
+        console.log('[Auth] サーバーサイドログアウト成功');
+      } catch (error) {
+        console.error('[Auth] サーバーサイドログアウトエラー:', error);
+        // サーバーサイドのエラーは無視してクライアントサイドのログアウトを続行
+      }
+      
+      // 最終的にログイン画面にリダイレクト（ログアウトフラグ付き）
+      console.log('[Auth] ログアウト完了、ログイン画面へリダイレクト');
+      router.push('/login?logout=true');
+    } catch (error) {
+      console.error('[Auth] ログアウト処理中にエラー:', error);
+      // エラーがあっても強制的にログアウトを実行
+      router.push('/login?logout=true&error=true');
+    }
   };
 
   return (

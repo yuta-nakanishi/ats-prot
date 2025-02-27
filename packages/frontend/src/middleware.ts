@@ -6,28 +6,66 @@ export function middleware(request: NextRequest) {
   const isAuthPage = request.nextUrl.pathname === '/login';
   const isRegisterPage = request.nextUrl.pathname === '/register';
   const isTestPage = request.nextUrl.pathname === '/test';
-  const isPublicPage = isAuthPage || isRegisterPage || isTestPage;
+  const isLogoutPage = request.nextUrl.pathname === '/logout';
+  // 強制ログアウトページは認証チェックをスキップするパブリックページとして扱う
+  const isPublicPage = isAuthPage || isRegisterPage || isTestPage || isLogoutPage;
   
-  // デバッグログ（環境変数がtrueの場合のみ出力）
-  if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-    console.log('Middleware running for path:', request.nextUrl.pathname);
-    console.log('Token exists:', !!token);
-    console.log('Is public page:', isPublicPage);
+  // URLのクエリパラメータをチェック
+  const isLogoutProcess = request.nextUrl.searchParams.get('logout') === 'true';
+  const isForceLogout = request.nextUrl.searchParams.get('force') === 'true';
+  
+  // デバッグログ（常に出力）
+  console.log('[Middleware] Path:', request.nextUrl.pathname);
+  console.log('[Middleware] Token exists:', !!token);
+  console.log('[Middleware] Is logout process:', isLogoutProcess);
+  console.log('[Middleware] Is force logout:', isForceLogout);
+  
+  // 強制ログアウトページへのアクセスは常に許可
+  if (isLogoutPage) {
+    console.log('[Middleware] Allowing access to force logout page');
+    return NextResponse.next();
+  }
+  
+  // 強制ログアウト後のログインページアクセスの場合、Cookieを削除
+  if (isForceLogout && isAuthPage) {
+    console.log('[Middleware] Handling force logout');
+    // ログアウトクエリパラメータを削除したURLを作成
+    const cleanUrl = new URL('/login', request.url);
+    
+    // レスポンスを作成してCookieを削除
+    const response = NextResponse.rewrite(cleanUrl);
+    if (token) {
+      response.cookies.delete('token');
+    }
+    
+    return response;
+  }
+  
+  // 通常のログアウト処理中の場合
+  if (isLogoutProcess && isAuthPage) {
+    console.log('[Middleware] Handling logout process');
+    // ログアウトクエリパラメータを削除したURLを作成
+    const cleanUrl = new URL('/login', request.url);
+    
+    // レスポンスを作成してCookieを削除
+    const response = NextResponse.rewrite(cleanUrl);
+    if (token) {
+      response.cookies.delete('token');
+    }
+    
+    return response;
   }
   
   // 未認証状態でパブリックページ以外にアクセスした場合はログインページにリダイレクト
   if (!token && !isPublicPage) {
-    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-      console.log('Redirecting to login because no token and not public page');
-    }
+    console.log('[Middleware] Redirecting to login: no token, not public page');
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // 認証済み状態でログインページにアクセスした場合はダッシュボードにリダイレクト
-  if (token && isAuthPage) {
-    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-      console.log('Redirecting to dashboard because has token and is auth page');
-    }
+  // ただし、ログアウト処理中は除外
+  if (token && isAuthPage && !isLogoutProcess && !isForceLogout) {
+    console.log('[Middleware] Redirecting to dashboard: has token, on login page');
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 

@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getTenantById } from '../../../../lib/api/tenant';
-import { getCurrentUser, logout } from '../../../../lib/api/auth';
+import { getCurrentUser } from '../../../../lib/api/auth';
 import { formatDate } from '../../../../lib/utils/format';
 import { Company, User } from '../../../../types';
+import { useAuth } from '../../../../contexts/AuthContext';
 import { 
   Typography, 
   Layout, 
@@ -44,6 +45,7 @@ interface CompanyDashboardProps {
 
 export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
   const router = useRouter();
+  const { logout } = useAuth();
   const [company, setCompany] = useState<Company | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -151,11 +153,12 @@ export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
   // ログアウト処理
   const handleLogout = async () => {
     try {
+      console.log('[Dashboard] ログアウト処理開始');
+      // AuthContext経由でログアウト処理を実行
       await logout();
-      localStorage.removeItem('token');
-      router.push('/login');
+      // AuthContextのlogout関数内でリダイレクトするため、ここではリダイレクト不要
     } catch (error) {
-      console.error('ログアウトエラー:', error);
+      console.error('[Dashboard] ログアウトエラー:', error);
       setError('ログアウトに失敗しました。');
     }
   };
