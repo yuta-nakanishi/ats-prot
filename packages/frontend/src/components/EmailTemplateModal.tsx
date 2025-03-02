@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Form, Input, Select, Space, Typography } from 'antd';
-import { EmailTemplate } from '../types';
+import { EmailTemplate } from '../lib/types';
 
 const { TextArea } = Input;
 const { Text } = Typography;

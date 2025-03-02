@@ -15,7 +15,8 @@ import type {
   ResourcePermission,
   CreateResourcePermissionDto,
   PermissionAction,
-  PermissionResource
+  PermissionResource,
+  EmailTemplate
 } from './types';
 
 const api = axios.create({
@@ -362,4 +363,31 @@ export const permissionsApi = {
       throw error;
     }
   },
+};
+
+// Eメールテンプレート関連のAPI
+export const emailTemplatesApi = {
+  getAll: async (): Promise<EmailTemplate[]> => {
+    const response = await api.get('/email-templates');
+    return response.data;
+  },
+  getByCompany: async (companyId: string): Promise<EmailTemplate[]> => {
+    const response = await api.get(`/email-templates?companyId=${companyId}`);
+    return response.data;
+  },
+  getOne: async (id: string): Promise<EmailTemplate> => {
+    const response = await api.get(`/email-templates/${id}`);
+    return response.data;
+  },
+  create: async (data: Omit<EmailTemplate, 'id'>): Promise<EmailTemplate> => {
+    const response = await api.post('/email-templates', data);
+    return response.data;
+  },
+  update: async (id: string, data: Partial<EmailTemplate>): Promise<EmailTemplate> => {
+    const response = await api.patch(`/email-templates/${id}`, data);
+    return response.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/email-templates/${id}`);
+  }
 };

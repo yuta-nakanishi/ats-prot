@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Button, Space, Typography, List, Popconfirm } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { EmailTemplate } from '../types';
+import { EmailTemplate } from '../lib/types';
 import { EmailTemplateModal } from './EmailTemplateModal';
 
 const { Text, Title } = Typography;

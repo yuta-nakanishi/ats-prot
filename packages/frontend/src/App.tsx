@@ -9,8 +9,8 @@ import { JobPostingModal } from './components/JobPostingModal';
 import { EmailTemplateList } from './components/EmailTemplateList';
 import { Dashboard } from './components/reporting/Dashboard';
 import { CandidatesTab } from './components/CandidatesTab';
-import { Candidate, Document, Interview, Evaluation, JobPosting, EmailTemplate, initialEmailTemplates } from './types';
-import { jobPostingsApi, candidatesApi } from './lib/api';
+import { Candidate, Document, Interview, Evaluation, JobPosting, EmailTemplate, CandidateStatus } from './lib/types';
+import { jobPostingsApi, candidatesApi, interviewsApi, evaluationsApi, emailTemplatesApi } from './lib/api';
 import { useAuth } from './contexts/AuthContext';
 import axios from 'axios';
 import PermissionGuard from './components/permissions/PermissionGuard';
@@ -27,10 +27,10 @@ function App({ initialTab = 'dashboard' }: AppProps) {
   const { logout } = useAuth();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [jobPostings, setJobPostings] = useState<JobPosting[]>([]);
-  const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>(initialEmailTemplates);
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
   const [candidateSearch, setCandidateSearch] = useState('');
   const [jobSearch, setJobSearch] = useState('');
-  const [candidateStatusFilter, setCandidateStatusFilter] = useState<Candidate['status'] | 'all'>('all');
+  const [candidateStatusFilter, setCandidateStatusFilter] = useState<CandidateStatus | 'all'>('all');
   const [jobStatusFilter, setJobStatusFilter] = useState<JobPosting['status'] | 'all'>('all');
   const [showAddCandidateModal, setShowAddCandidateModal] = useState(false);
   const [showJobPostingModal, setShowJobPostingModal] = useState(false);
@@ -40,12 +40,23 @@ function App({ initialTab = 'dashboard' }: AppProps) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [candidatesData, jobPostingsData] = await Promise.all([
+        const [candidatesData, jobPostingsData, emailTemplatesData] = await Promise.all([
           candidatesApi.getAll(),
-          jobPostingsApi.getAll()
+          jobPostingsApi.getAll(),
+          emailTemplatesApi.getAll()
         ]);
-        setCandidates(candidatesData);
+        
+        // バックエンドからのデータを適切な形式に変換
+        const transformedCandidates = candidatesData.map(candidate => ({
+          ...candidate,
+          // 必要に応じて追加フィールドを設定
+          appliedAt: candidate.appliedAt || candidate.appliedDate || new Date().toISOString(),
+          updatedAt: candidate.updatedAt || new Date().toISOString()
+        }));
+        
+        setCandidates(transformedCandidates);
         setJobPostings(jobPostingsData);
+        setEmailTemplates(emailTemplatesData);
       } catch (error) {
         console.error('Error fetching data:', error);
         // APIエラーがあれば、認証切れの可能性もあるためログインページにリダイレクト
@@ -60,11 +71,18 @@ function App({ initialTab = 'dashboard' }: AppProps) {
     fetchData();
   }, [logout]);
 
-  const handleStatusChange = (id: string, status: Candidate['status']) => {
+  const handleStatusChange = (id: string, status: CandidateStatus) => {
     candidatesApi.update(id, { status })
       .then(updatedCandidate => {
+        // バックエンドのレスポンスを適切な形式に変換
+        const transformedCandidate = {
+          ...updatedCandidate,
+          appliedAt: updatedCandidate.appliedAt || updatedCandidate.appliedDate || new Date().toISOString(),
+          updatedAt: updatedCandidate.updatedAt || new Date().toISOString()
+        };
+        
         setCandidates(candidates.map(candidate =>
-          candidate.id === id ? updatedCandidate : candidate
+          candidate.id === id ? transformedCandidate : candidate
         ));
       })
       .catch(error => {
@@ -73,12 +91,24 @@ function App({ initialTab = 'dashboard' }: AppProps) {
   };
 
   const handleAddCandidate = (newCandidate: Omit<Candidate, 'id'>) => {
-    candidatesApi.create({
+    // 必要なフィールドを追加
+    const candidateToCreate = {
       ...newCandidate,
-      emailHistory: []
-    })
+      emailHistory: [],
+      appliedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    candidatesApi.create(candidateToCreate)
       .then(candidate => {
-        setCandidates([candidate, ...candidates]);
+        // バックエンドのレスポンスを適切な形式に変換
+        const transformedCandidate = {
+          ...candidate,
+          appliedAt: candidate.appliedAt || candidate.appliedDate || new Date().toISOString(),
+          updatedAt: candidate.updatedAt || new Date().toISOString()
+        };
+        
+        setCandidates([transformedCandidate, ...candidates]);
       })
       .catch(error => {
         console.error('Error creating candidate:', error);
@@ -88,8 +118,15 @@ function App({ initialTab = 'dashboard' }: AppProps) {
   const handleUpdateCandidate = (candidateId: string, updates: Partial<Candidate>) => {
     candidatesApi.update(candidateId, updates)
       .then(updatedCandidate => {
+        // バックエンドのレスポンスを適切な形式に変換
+        const transformedCandidate = {
+          ...updatedCandidate,
+          appliedAt: updatedCandidate.appliedAt || updatedCandidate.appliedDate || new Date().toISOString(),
+          updatedAt: updatedCandidate.updatedAt || new Date().toISOString()
+        };
+        
         setCandidates(candidates.map(candidate =>
-          candidate.id === candidateId ? updatedCandidate : candidate
+          candidate.id === candidateId ? transformedCandidate : candidate
         ));
       })
       .catch(error => {
@@ -97,75 +134,100 @@ function App({ initialTab = 'dashboard' }: AppProps) {
       });
   };
 
-  const handleAddInterview = (candidateId: string, interview: Omit<Interview, 'id' | 'status' | 'feedback'>) => {
+  const handleAddInterview = (candidateId: string, interview: Omit<Interview, 'id'>) => {
+    // 新しいインタビューを作成する
+    const newInterview = {
+      ...interview,
+      id: crypto.randomUUID()
+    };
+    
+    // 候補者の面接リストを更新する
     setCandidates(candidates.map(candidate => {
       if (candidate.id === candidateId) {
         return {
           ...candidate,
           interviews: [
-            ...candidate.interviews,
-            {
-              ...interview,
-              id: crypto.randomUUID(),
-              status: 'scheduled',
-              feedback: ''
-            }
+            ...(candidate.interviews || []),
+            newInterview
           ]
         };
       }
       return candidate;
     }));
+
+    // 実際にはここでバックエンドAPIを呼び出す必要があります
+    // TODO: バックエンドの面接作成APIを実装して連携する
   };
 
   const handleUpdateInterview = (candidateId: string, interviewId: string, updates: Partial<Interview>) => {
+    // 面接データを更新する
     setCandidates(candidates.map(candidate => {
       if (candidate.id === candidateId) {
         return {
           ...candidate,
-          interviews: candidate.interviews.map(interview =>
+          interviews: (candidate.interviews || []).map(interview =>
             interview.id === interviewId ? { ...interview, ...updates } : interview
           )
         };
       }
       return candidate;
     }));
+
+    // 実際にはここでバックエンドAPIを呼び出す必要があります
+    // TODO: バックエンドの面接更新APIを実装して連携する
+    // interviewsApi.update(interviewId, { ...updates }) のように
   };
 
   const handleAddEvaluation = (candidateId: string, evaluation: Omit<Evaluation, 'id'>) => {
+    // 評価を作成する
+    const newEvaluation = {
+      ...evaluation,
+      id: crypto.randomUUID()
+    };
+    
+    // 候補者の評価リストを更新する
     setCandidates(candidates.map(candidate => {
       if (candidate.id === candidateId) {
         return {
           ...candidate,
           evaluations: [
-            ...candidate.evaluations,
-            {
-              ...evaluation,
-              id: crypto.randomUUID()
-            }
+            ...(candidate.evaluations || []),
+            newEvaluation
           ]
         };
       }
       return candidate;
     }));
+
+    // 実際にはここでバックエンドAPIを呼び出す必要があります
+    // TODO: バックエンドの評価作成APIを実装して連携する
+    // evaluationsApi.create({ ...evaluation, candidateId }) のように
   };
 
   const handleAddDocument = (candidateId: string, document: Omit<Document, 'id' | 'uploadDate'>) => {
+    // ドキュメントを作成する
+    const newDocument = {
+      ...document,
+      id: crypto.randomUUID(),
+      uploadDate: new Date().toISOString()
+    };
+    
+    // 候補者のドキュメントリストを更新する
     setCandidates(candidates.map(candidate => {
       if (candidate.id === candidateId) {
         return {
           ...candidate,
           documents: [
-            ...candidate.documents,
-            {
-              ...document,
-              id: crypto.randomUUID(),
-              uploadDate: new Date().toISOString()
-            }
+            ...(candidate.documents || []),
+            newDocument
           ]
         };
       }
       return candidate;
     }));
+
+    // 実際にはここでバックエンドAPIを呼び出す必要があります
+    // TODO: バックエンドのドキュメントアップロードAPIを実装して連携する
   };
 
   const handleAddJobPosting = (jobPosting: Omit<JobPosting, 'id'>) => {
@@ -201,24 +263,36 @@ function App({ initialTab = 'dashboard' }: AppProps) {
   };
 
   const handleAddEmailTemplate = (template: Omit<EmailTemplate, 'id'>) => {
-    const newTemplate: EmailTemplate = {
-      ...template,
-      id: crypto.randomUUID()
-    };
-    setEmailTemplates([...emailTemplates, newTemplate]);
+    emailTemplatesApi.create(template)
+      .then(newTemplate => {
+        setEmailTemplates([...emailTemplates, newTemplate]);
+      })
+      .catch(error => {
+        console.error('Error creating email template:', error);
+      });
   };
 
-  const handleEditEmailTemplate = (templateId: string, updates: Omit<EmailTemplate, 'id'>) => {
-    setEmailTemplates(emailTemplates.map(template =>
-      template.id === templateId ? { ...template, ...updates } : template
-    ));
+  const handleEditEmailTemplate = (templateId: string, updates: Partial<EmailTemplate>) => {
+    emailTemplatesApi.update(templateId, updates)
+      .then(updatedTemplate => {
+        setEmailTemplates(emailTemplates.map(template =>
+          template.id === templateId ? updatedTemplate : template
+        ));
+      })
+      .catch(error => {
+        console.error('Error updating email template:', error);
+      });
   };
 
   const handleDeleteEmailTemplate = (templateId: string) => {
-    setEmailTemplates(emailTemplates.filter(template => template.id !== templateId));
+    emailTemplatesApi.delete(templateId)
+      .then(() => {
+        setEmailTemplates(emailTemplates.filter(template => template.id !== templateId));
+      })
+      .catch(error => {
+        console.error('Error deleting email template:', error);
+      });
   };
-
-
 
   const tabItems = [
     {
@@ -378,7 +452,6 @@ function App({ initialTab = 'dashboard' }: AppProps) {
           <Tabs defaultActiveKey={initialTab} items={tabItems} />
         )}
       </Content>
-
 
       <AddCandidateModal
         isOpen={showAddCandidateModal}

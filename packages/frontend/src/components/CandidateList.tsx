@@ -1,6 +1,5 @@
 import React from 'react';
-import { Table, Tag, Space, Typography, Button } from 'antd';
-import { UserOutlined, MailOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import { Table, Tag, Typography } from 'antd';
 import { Candidate, JobPosting } from '../types';
 
 const { Text } = Typography;
@@ -16,20 +15,28 @@ interface Props {
   onPageChange: (page: number, pageSize: number) => void;
 }
 
-const statusColors = {
-  new: 'blue',
-  reviewing: 'gold',
-  interviewed: 'purple',
-  offered: 'green',
-  rejected: 'red'
-};
-
+// 状態に対応する表示ラベル
 const statusLabels = {
   new: '新規',
-  reviewing: '審査中',
-  interviewed: '面接済',
-  offered: '内定',
-  rejected: '不採用'
+  screening: '書類選考中',
+  interview: '面接中',
+  technical: '技術面接中',
+  offer: '内定提示中',
+  hired: '内定承諾',
+  rejected: '不採用',
+  withdrawn: '辞退'
+};
+
+// 状態に対応する色
+const statusColors = {
+  new: 'blue',
+  screening: 'cyan',
+  interview: 'purple',
+  technical: 'geekblue',
+  offer: 'orange',
+  hired: 'green',
+  rejected: 'red',
+  withdrawn: 'gray'
 };
 
 const formatDate = (date: string) => {
@@ -40,7 +47,6 @@ export const CandidateList: React.FC<Props> = ({
   candidates,
   jobPostings,
   onSelectCandidate,
-  onStatusChange,
   currentPage,
   pageSize,
   total,
@@ -66,7 +72,7 @@ export const CandidateList: React.FC<Props> = ({
       title: '求人',
       dataIndex: 'jobPostingId',
       key: 'jobPosting',
-      render: (jobPostingId: string, record: Candidate) => {
+      render: (jobPostingId: string) => {
         const jobPosting = jobPostings.find(jp => jp.id === jobPostingId);
         return jobPosting ? jobPosting.title : '未設定';
       }
@@ -79,7 +85,7 @@ export const CandidateList: React.FC<Props> = ({
     {
       title: '応募日',
       key: 'appliedDate',
-      render: (record: Candidate) => formatDate(record.appliedDate)
+      render: (record: Candidate) => record.appliedDate ? formatDate(record.appliedDate) : '未設定'
     },
   ];
 

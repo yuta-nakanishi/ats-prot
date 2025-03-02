@@ -11,6 +11,7 @@ import { CompaniesModule } from './companies/companies.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { UsersModule } from './users/users.module';
 import { JobAssignmentsModule } from './job-assignments/job-assignments.module';
+import { EmailTemplatesModule } from './email-templates/email-templates.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { JobAssignmentsModule } from './job-assignments/job-assignments.module';
     PermissionsModule,
     UsersModule,
     JobAssignmentsModule,
+    EmailTemplatesModule,
   ],
 })
 export class AppModule {}

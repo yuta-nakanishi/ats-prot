@@ -17,26 +17,47 @@ export interface JobPosting {
   closingDate?: string;
 }
 
+// 候補者の状態
+export type CandidateStatus = 'new' | 'screening' | 'interview' | 'technical' | 'offer' | 'hired' | 'rejected' | 'withdrawn';
+export type CandidateSource = 'company_website' | 'indeed' | 'linkedin' | 'referral' | 'agency' | 'job_fair' | 'other';
+
 // 候補者関連の型定義
 export interface Candidate {
   id: string;
   name: string;
   email: string;
-  role: string;
-  status: 'new' | 'reviewing' | 'interviewed' | 'offered' | 'rejected';
-  experience: number;
-  skills: string[];
-  appliedDate: string;
-  notes: string;
-  interviews: Interview[];
-  evaluations: Evaluation[];
-  expectedSalary?: number;
-  currentSalary?: number;
-  source: string;
-  location: string;
-  documents: Document[];
-  jobPostingId: string;
-  emailHistory: EmailMessage[];
+  phone?: string;
+  position?: string;
+  status: CandidateStatus;
+  experience?: number;
+  skills?: string[];
+  appliedAt: string;
+  updatedAt: string;
+  notes?: string;
+  interviews?: Interview[];
+  evaluations?: Evaluation[];
+  expectedSalary?: string;
+  currentCompany?: string;
+  source: CandidateSource;
+  location?: string;
+  birthDate?: string;
+  availableFrom?: string;
+  education?: string;
+  urls?: {
+    website?: string;
+    linkedin?: string;
+    github?: string;
+  };
+  resumeFileName?: string;
+  resumeFilePath?: string;
+  rating?: number;
+  jobId?: string;
+  jobPosting?: JobPosting;
+  documents?: Document[];
+  emailHistory?: EmailMessage[];
+  role?: string;
+  appliedDate?: string;
+  jobPostingId?: string;
 }
 
 // 面接関連の型定義

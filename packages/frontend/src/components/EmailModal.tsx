@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Input, Select, Space, Button, List, Typography } from 'antd';
-import { EmailTemplate, EmailMessage, initialEmailTemplates } from '../types';
+import { Modal, Form, Input, Select, List, Typography } from 'antd';
+import { EmailTemplate, EmailMessage } from '../lib/types';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -8,160 +8,151 @@ const { Text } = Typography;
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onSend: (email: Omit<EmailMessage, 'id' | 'sentDate'>) => void;
-  recipientEmail: string;
-  recipientName: string;
+  onSubmit: (email: { subject: string; body: string; type: EmailMessage['type'] }) => void;
+  candidateName: string;
+  templates: EmailTemplate[];
 }
 
 export const EmailModal: React.FC<Props> = ({
   isOpen,
   onClose,
-  onSend,
-  recipientEmail,
-  recipientName
+  onSubmit,
+  candidateName,
+  templates
 }) => {
   const [form] = Form.useForm();
-  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
-  const [customVariables, setCustomVariables] = useState<Record<string, string>>({});
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>();
+  const [previewMode, setPreviewMode] = useState(false);
 
+  // テンプレート変更時に件名と本文を更新する
   useEffect(() => {
-    if (!isOpen) {
-      form.resetFields();
-      setSelectedTemplate(null);
-      setCustomVariables({});
+    if (selectedTemplateId) {
+      const template = templates.find(t => t.id === selectedTemplateId);
+      if (template) {
+        let subject = template.subject;
+        let body = template.body;
+
+        // 変数置換
+        subject = subject.replace(/{{candidate_name}}/g, candidateName);
+        body = body.replace(/{{candidate_name}}/g, candidateName);
+
+        form.setFieldsValue({
+          subject,
+          body
+        });
+      }
     }
-  }, [isOpen, form]);
-
-  const handleTemplateSelect = (templateId: string) => {
-    const template = initialEmailTemplates.find(t => t.id === templateId);
-    if (template) {
-      setSelectedTemplate(template);
-      
-      // Initialize variables with default values
-      const initialVariables = {
-        company: '株式会社サンプル',
-        candidate_name: recipientName,
-        sender_name: '採用担当',
-        ...customVariables
-      };
-      setCustomVariables(initialVariables);
-
-      // Update form with template content
-      let subject = template.subject;
-      let body = template.body;
-
-      // Replace variables in subject and body
-      Object.entries(initialVariables).forEach(([key, value]) => {
-        subject = subject.replace(new RegExp(`{{${key}}}`, 'g'), value);
-        body = body.replace(new RegExp(`{{${key}}}`, 'g'), value);
-      });
-
-      form.setFieldsValue({
-        subject,
-        body
-      });
-    }
-  };
-
-  const handleVariableChange = (variable: string, value: string) => {
-    const newVariables = { ...customVariables, [variable]: value };
-    setCustomVariables(newVariables);
-
-    if (selectedTemplate) {
-      let subject = selectedTemplate.subject;
-      let body = selectedTemplate.body;
-
-      Object.entries(newVariables).forEach(([key, val]) => {
-        subject = subject.replace(new RegExp(`{{${key}}}`, 'g'), val);
-        body = body.replace(new RegExp(`{{${key}}}`, 'g'), val);
-      });
-
-      form.setFieldsValue({
-        subject,
-        body
-      });
-    }
-  };
+  }, [selectedTemplateId, candidateName, form, templates]);
 
   const handleSubmit = () => {
-    form.validateFields().then((values) => {
-      onSend({
+    form.validateFields().then(values => {
+      onSubmit({
         subject: values.subject,
         body: values.body,
-        sender: 'recruiter@company.com',
-        recipient: recipientEmail,
-        type: selectedTemplate?.type || 'general'
+        type: values.type || 'general'
       });
+      form.resetFields();
       onClose();
     });
   };
 
+  const handleCancel = () => {
+    form.resetFields();
+    onClose();
+  };
+
   return (
     <Modal
-      title="メール作成"
+      title="メール送信"
       open={isOpen}
-      onCancel={onClose}
+      onCancel={handleCancel}
       onOk={handleSubmit}
       width={800}
+      destroyOnClose={true}
+      footer={[
+        <button
+          key="toggle-preview"
+          onClick={() => setPreviewMode(!previewMode)}
+          className="ant-btn"
+        >
+          {previewMode ? 'フォームに戻る' : 'プレビュー'}
+        </button>,
+        <button key="cancel" onClick={handleCancel} className="ant-btn">
+          キャンセル
+        </button>,
+        <button
+          key="submit"
+          onClick={handleSubmit}
+          className="ant-btn ant-btn-primary"
+        >
+          送信
+        </button>
+      ]}
     >
-      <Form 
-        form={form}
-        layout="vertical"
-        preserve={false}
-        initialValues={{
-          subject: '',
-          body: ''
-        }}
-      >
-        <Form.Item label="テンプレート">
-          <Select
-            placeholder="テンプレートを選択"
-            onChange={handleTemplateSelect}
-            allowClear
+      {previewMode ? (
+        <div className="email-preview">
+          <h3>件名: {form.getFieldValue('subject')}</h3>
+          <div
+            style={{ whiteSpace: 'pre-wrap' }}
+            dangerouslySetInnerHTML={{ __html: form.getFieldValue('body').replace(/\n/g, '<br>') }}
+          />
+        </div>
+      ) : (
+        <Form
+          form={form}
+          layout="vertical"
+          name="emailForm"
+        >
+          <Form.Item
+            name="templateId"
+            label="テンプレート"
           >
-            {initialEmailTemplates.map(template => (
-              <Select.Option key={template.id} value={template.id}>
-                {template.name}
-              </Select.Option>
-            ))}
-          </Select>
-        </Form.Item>
+            <Select
+              placeholder="テンプレートを選択"
+              onChange={(value) => setSelectedTemplateId(value)}
+              allowClear
+            >
+              {templates.map(template => (
+                <Select.Option key={template.id} value={template.id}>
+                  {template.name} ({template.type === 'interview_invitation' ? '面接案内' : 
+                    template.type === 'offer' ? '内定通知' : 
+                    template.type === 'rejection' ? '不採用通知' : 'その他'})
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
 
-        {selectedTemplate && (
-          <div className="mb-4 p-4 bg-gray-50 rounded">
-            <Text strong>変数の設定</Text>
-            <List
-              size="small"
-              dataSource={selectedTemplate.variables}
-              renderItem={variable => (
-                <List.Item>
-                  <Input
-                    addonBefore={variable}
-                    value={customVariables[variable] || ''}
-                    onChange={(e) => handleVariableChange(variable, e.target.value)}
-                  />
-                </List.Item>
-              )}
-            />
-          </div>
-        )}
+          <Form.Item
+            name="type"
+            label="メール種類"
+            initialValue="general"
+            rules={[{ required: true, message: 'メール種類を選択してください' }]}
+          >
+            <Select>
+              <Select.Option value="interview_invitation">面接案内</Select.Option>
+              <Select.Option value="offer">内定通知</Select.Option>
+              <Select.Option value="rejection">不採用通知</Select.Option>
+              <Select.Option value="general">その他</Select.Option>
+            </Select>
+          </Form.Item>
 
-        <Form.Item
-          name="subject"
-          label="件名"
-          rules={[{ required: true, message: '件名を入力してください' }]}
-        >
-          <Input />
-        </Form.Item>
+          <Form.Item
+            name="subject"
+            label="件名"
+            rules={[{ required: true, message: '件名を入力してください' }]}
+          >
+            <Input />
+          </Form.Item>
 
-        <Form.Item
-          name="body"
-          label="本文"
-          rules={[{ required: true, message: '本文を入力してください' }]}
-        >
-          <TextArea rows={10} />
-        </Form.Item>
-      </Form>
+          <Form.Item
+            name="body"
+            label="本文"
+            rules={[{ required: true, message: '本文を入力してください' }]}
+          >
+            <TextArea rows={10} />
+          </Form.Item>
+        </Form>
+      )}
     </Modal>
   );
 };

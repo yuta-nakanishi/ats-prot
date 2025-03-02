@@ -55,15 +55,17 @@ export const CandidatesTab: React.FC<Props> = ({
   }, [initialCandidates, selectedCandidate]);
 
   const filteredCandidates = candidates.filter(candidate => {
-    const matchesSearch = 
-      candidate.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-      candidate.role.toLowerCase().includes(searchValue.toLowerCase()) ||
-      candidate.skills.some(skill => skill.toLowerCase().includes(searchValue.toLowerCase())) ||
-      candidate.location.toLowerCase().includes(searchValue.toLowerCase());
+    if (statusFilter !== 'all' && candidate.status !== statusFilter) {
+      return false;
+    }
 
-    const matchesStatus = statusFilter === 'all' || candidate.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
+    if (!searchValue) return true;
+    
+    return candidate.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+      candidate.email.toLowerCase().includes(searchValue.toLowerCase()) ||
+      candidate.role?.toLowerCase().includes(searchValue.toLowerCase()) ||
+      candidate.skills?.some(skill => skill.toLowerCase().includes(searchValue.toLowerCase())) ||
+      candidate.location?.toLowerCase().includes(searchValue.toLowerCase());
   });
 
   const paginatedCandidates = filteredCandidates.slice(
@@ -139,10 +141,13 @@ export const CandidatesTab: React.FC<Props> = ({
           >
             <Select.Option value="all">全てのステータス</Select.Option>
             <Select.Option value="new">新規</Select.Option>
-            <Select.Option value="reviewing">審査中</Select.Option>
-            <Select.Option value="interviewed">面接済</Select.Option>
-            <Select.Option value="offered">オファー</Select.Option>
+            <Select.Option value="screening">書類選考中</Select.Option>
+            <Select.Option value="interview">面接中</Select.Option>
+            <Select.Option value="technical">技術面接中</Select.Option>
+            <Select.Option value="offer">内定提示中</Select.Option>
+            <Select.Option value="hired">内定承諾</Select.Option>
             <Select.Option value="rejected">不採用</Select.Option>
+            <Select.Option value="withdrawn">辞退</Select.Option>
           </Select>
         </Space>
         <PermissionGuard

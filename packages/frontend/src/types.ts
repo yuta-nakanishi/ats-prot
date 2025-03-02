@@ -33,6 +33,12 @@ export interface Candidate {
   rating?: number;
   jobId?: string;
   jobPosting?: JobPosting;
+  documents?: Document[];
+  emailHistory?: EmailMessage[];
+  // バックエンドのAPIと一致させるために追加のフィールド
+  role?: string;
+  appliedDate?: string;
+  jobPostingId?: string;
 }
 
 // 企業（テナント）の型定義
@@ -172,54 +178,6 @@ export interface EmailTemplate {
 export interface LoginResponse {
   token: string;
 }
-
-// Email templates
-export const initialEmailTemplates: EmailTemplate[] = [
-  {
-    id: 'template1',
-    name: '一次面接案内',
-    subject: '【{{company}}】一次面接のご案内',
-    body: `{{candidate_name}} 様
-
-この度は{{company}}にご応募いただき、誠にありがとうございます。
-
-一次面接の日程について、ご案内させていただきます。
-
-日時：{{interview_date}} {{interview_time}}
-場所：{{interview_location}}
-面接官：{{interviewer}}
-
-{{additional_info}}
-
-ご都合が合わない場合は、お手数ですが別の日程をご提案ください。
-
-よろしくお願いいたします。
-
-{{sender_name}}
-{{company}}`,
-    type: 'interview_invitation',
-    variables: ['company', 'candidate_name', 'interview_date', 'interview_time', 'interview_location', 'interviewer', 'additional_info', 'sender_name']
-  },
-  {
-    id: 'template2',
-    name: '内定通知',
-    subject: '【{{company}}】内定のご案内',
-    body: `{{candidate_name}} 様
-
-この度は{{company}}の採用選考にご参加いただき、誠にありがとうございます。
-
-厳正なる選考の結果、{{role}}職として内定を差し上げたく、ご連絡させていただきました。
-
-詳細な条件等につきましては、改めてご案内させていただきます。
-
-何かご不明な点がございましたら、お気軽にご連絡ください。
-
-{{sender_name}}
-{{company}}`,
-    type: 'offer',
-    variables: ['company', 'candidate_name', 'role', 'sender_name']
-  }
-];
 
 // Mock data for development
 export const mockJobPostings: JobPosting[] = [

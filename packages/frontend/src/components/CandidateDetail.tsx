@@ -38,20 +38,28 @@ interface Props {
   onBack: () => void;
 }
 
-const statusColors = {
-  new: 'blue',
-  reviewing: 'gold',
-  interviewed: 'purple',
-  offered: 'green',
-  rejected: 'red'
-};
-
+// 状態に対応する表示ラベル
 const statusLabels = {
   new: '新規',
-  reviewing: '審査中',
-  interviewed: '面接済',
-  offered: '内定',
-  rejected: '不採用'
+  screening: '書類選考中',
+  interview: '面接中',
+  technical: '技術面接中',
+  offer: '内定提示中',
+  hired: '内定承諾',
+  rejected: '不採用',
+  withdrawn: '辞退'
+};
+
+// 状態に対応する色
+const statusColors = {
+  new: 'blue',
+  screening: 'cyan',
+  interview: 'purple',
+  technical: 'geekblue',
+  offer: 'orange',
+  hired: 'green',
+  rejected: 'red',
+  withdrawn: 'gray'
 };
 
 const formatDate = (date: string) => {
@@ -207,23 +215,9 @@ export const CandidateDetail: React.FC<Props> = ({
     setShowEvaluationModal(false);
   };
 
-  const handleSendEmail = (email: Omit<EmailMessage, 'id' | 'sentDate'>) => {
-    const newEmail: EmailMessage = {
-      ...email,
-      id: crypto.randomUUID(),
-      sentDate: new Date().toISOString()
-    };
-    
-    const updatedEmailHistory = [...emailHistory, newEmail];
-    
-    setCandidate(prev => ({
-      ...prev,
-      emailHistory: updatedEmailHistory
-    }));
-    
-    onUpdateCandidate(candidate.id, {
-      emailHistory: updatedEmailHistory
-    });
+  const handleSendEmail = (email: { subject: string; body: string; type: EmailMessage['type'] }) => {
+    // メール送信ロジック
+    console.log('メール送信:', email);
   };
 
   const handleEvaluate = (interviewId: string) => {
@@ -309,7 +303,7 @@ export const CandidateDetail: React.FC<Props> = ({
               {candidate.role}
             </Descriptions.Item>
             <Descriptions.Item label={<><CalendarOutlined /> 応募日</>}>
-              {formatDate(candidate.appliedDate)}
+              {candidate.appliedDate ? formatDate(candidate.appliedDate) : '未設定'}
             </Descriptions.Item>
             <Descriptions.Item label={<><EnvironmentOutlined /> 勤務地</>}>
               {candidate.location}
@@ -319,14 +313,13 @@ export const CandidateDetail: React.FC<Props> = ({
             </Descriptions.Item>
             {candidate.expectedSalary && (
               <Descriptions.Item label={<><DollarOutlined /> 希望年収</>}>
-                {(candidate.expectedSalary / 10000).toFixed(0)}万円
-                {candidate.currentSalary && ` (現在: ${(candidate.currentSalary / 10000).toFixed(0)}万円)`}
+                {(Number(candidate.expectedSalary) / 10000).toFixed(0)}万円
               </Descriptions.Item>
             )}
           </Descriptions>
 
           <div>
-            {candidate.skills.map((skill) => (
+            {candidate.skills?.map((skill) => (
               <Tag key={skill} className="mr-2 mb-2">{skill}</Tag>
             ))}
           </div>
@@ -480,9 +473,9 @@ export const CandidateDetail: React.FC<Props> = ({
       <EmailModal
         isOpen={showEmailModal}
         onClose={() => setShowEmailModal(false)}
-        onSend={handleSendEmail}
-        recipientEmail={candidate.email}
-        recipientName={candidate.name}
+        onSubmit={handleSendEmail}
+        candidateName={candidate.name}
+        templates={[]} // ここで必要なテンプレートを提供する
       />
     </div>
   );
